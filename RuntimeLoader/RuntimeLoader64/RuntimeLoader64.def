@@ -1,0 +1,4 @@
+LIBRARY RuntimeLoader32
+DESCRIPTION "A loader for the .NET Runtime, part of StrataXL."
+EXPORTS  
+	LoadRuntime		@1
