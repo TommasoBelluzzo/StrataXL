@@ -1,2 +1,2 @@
 # StrataXL
-An Excel integration for the OpenGamma Strata library.
+An Excel integration of OpenGamma Strata.
