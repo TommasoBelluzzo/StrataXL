@@ -1337,7 +1337,7 @@ Public Sub Initialize()
 ErrorHandler:
 
     Call PerformCleanup
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 

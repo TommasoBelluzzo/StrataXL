@@ -32,15 +32,7 @@ Dim m_Worksheet As Worksheet
 
 Private Sub Class_Initialize()
 
-    m_Initialized = False
-
-    Set m_Host = Nothing
-    Set m_RatesProvider = Nothing
-    Set m_ReferenceBusinessDays = Nothing
-    Set m_ReferenceCalendar = Nothing
-    Set m_ReferenceData = Nothing
-    Set m_ReferenceDateFormatter = Nothing
-    Set m_Worksheet = Nothing
+    Call PerformCleanup
 
 End Sub
 
@@ -128,7 +120,7 @@ Private Sub ParseWorksheetCurves(ByVal ws As Worksheet, ByVal ratesProviderBuild
         
         curveType = UCase$(Trim$(curveType))
         
-        If (curveType = vbNullString) Or ((curveType <> "DISCOUNT") And (curveType <> "OVERNIGHT") And (curveType <> "FORWARD")) Then
+        If (curveType <> "DISCOUNT") And (curveType <> "OVERNIGHT") And (curveType <> "FORWARD") Then
             Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid curve type in the cell " & ws.Cells(1, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
 
@@ -301,7 +293,7 @@ Private Sub ParseWorksheetExchange(ByVal ws As Worksheet, ByVal ratesProviderBui
 
         ccy1 = UCase$(Trim$(ccy1))
         
-        If (ccy1 = vbNullString) Or (Len(ccy1) <> 3) Then
+        If (Len(ccy1) <> 3) Then
             Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetExchange", "The sheet ""Setup-Exchange"" contains invalid data in the cell [" & CStr(i) & ", 1].")
         End If
 
@@ -313,7 +305,7 @@ Private Sub ParseWorksheetExchange(ByVal ws As Worksheet, ByVal ratesProviderBui
         
         ccy2 = UCase$(Trim$(ccy2))
         
-        If (ccy2 = vbNullString) Or (Len(ccy2) <> 3) Then
+        If (Len(ccy2) <> 3) Then
             Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetExchange", "The sheet ""Setup-Exchange"" contains invalid data in the cell [" & CStr(i) & ", 2].")
         End If
         
@@ -352,9 +344,55 @@ Private Sub PerformCleanup()
 End Sub
 
 ' METHOD
+' Cleans the previous results from the current trades sheet.
+
+Public Sub CleanCurrentTradesSheet(ByVal doubleHeader As Integer, ByVal doubleRows As Boolean)
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.CleanCurrentTradesSheet", "This instance has not been initialized yet.")
+    End If
+    
+    Dim headers As Long
+    
+    If doubleHeader Then
+        headers = 2
+    Else
+        headers = 1
+    End If
+
+    Dim rc As Long: rc = m_Worksheet.UsedRange.Rows.Count
+
+    If (rc < headers) Then
+        Call Err.Raise(vbObjectError + 1, "Pricing.CleanCurrentTradesSheet", "The trades sheet contains an invalid number of rows (" & CStr(rc) & ").")
+    End If
+
+    If (rc = headers) Then
+        Exit Sub
+    End If
+    
+    If doubleRows And (((rc - headers) Mod 2) <> 0) Then
+        Call Err.Raise(vbObjectError + 1, "Pricing.CleanCurrentTradesSheet", "The trades sheet contains an invalid number of rows (" & CStr(rc) & ").")
+    End If
+    
+    Dim cc As Long: cc = m_Worksheet.UsedRange.Columns.Count
+    Dim i As Long, j As Long
+        
+    For i = headers + 1 To rc
+        For j = cc - 1 To cc
+            m_Worksheet.Cells(i, j).ClearContents
+        Next j
+    Next i
+
+End Sub
+
+' METHOD
 ' Creates a TradeInfo with the given identifier and trade date.
 
 Public Function CreateTradeInfo(ByVal id As Long, ByVal tradeDate As Variant) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.CreateTradeInfo", "This instance has not been initialized yet.")
+    End If
 
     If (id <= 0) Then
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.CreateTradeInfo", "The identifier must be positive.")
@@ -380,6 +418,10 @@ End Function
 ' Retrieves an amount from the given worksheet cell.
 
 Public Function GetAmount(ByVal wsCell As String) As Double
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetAmount", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -407,6 +449,10 @@ End Function
 ' Retrieves a BusinessDayConvention from the given worksheet cell.
 
 Public Function GetBusinessDaysConvention(ByVal wsCell As String) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetBusinessDaysConvention", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -441,6 +487,10 @@ End Function
 
 Public Function GetCalendar(ByVal wsCell As String) As Variant
 
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetCalendar", "This instance has not been initialized yet.")
+    End If
+
     wsCell = Trim$(wsCell)
 
     If (wsCell = vbNullString) Then
@@ -461,7 +511,7 @@ Public Function GetCalendar(ByVal wsCell As String) As Variant
     
     calendar = UCase$(Trim$(calendar))
         
-    If (calendar = vbNullString) Or (Len(calendar) <> 4) Then
+    If (Len(calendar) <> 4) Then
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetCurrency", "The trades sheet contains an invalid calendar in the cell " & wsCell & ".")
     End If
 
@@ -473,6 +523,10 @@ End Function
 ' Retrieves a Currency from the given worksheet cell.
 
 Public Function GetCurrency(ByVal wsCell As String) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetCurrency", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -494,7 +548,7 @@ Public Function GetCurrency(ByVal wsCell As String) As Variant
     
     ccy = UCase$(Trim$(ccy))
         
-    If (ccy = vbNullString) Or (Len(ccy) <> 3) Then
+    If (Len(ccy) <> 3) Then
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetCurrency", "The trades sheet contains an invalid currency in the cell " & wsCell & ".")
     End If
 
@@ -506,6 +560,10 @@ End Function
 ' Retrieves a CurrencyAmount from the given worksheet cell.
 
 Public Function GetCurrencyAmount(ByVal wsCells As String) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetCurrencyAmount", "This instance has not been initialized yet.")
+    End If
 
     wsCells = Trim$(wsCells)
 
@@ -537,7 +595,7 @@ Public Function GetCurrencyAmount(ByVal wsCells As String) As Variant
     
     ccy = UCase$(Trim$(ccy))
         
-    If (ccy = vbNullString) Or (Len(ccy) <> 3) Then
+    If (Len(ccy) <> 3) Then
         cellsArray() = Split(wsCells, ":")
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetCurrencyAmount", "The trades sheet contains an invalid currency in the cell " & cellsArray(1) & ".")
     End If
@@ -551,6 +609,10 @@ End Function
 ' Retrieves a LocalDate from the given worksheet cell.
 
 Public Function GetDate(ByVal wsCell As String) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetDate", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -578,6 +640,10 @@ End Function
 ' Retrieves a DateSequence from the given worksheet cell.
 
 Public Function GetDateSequence(ByVal wsCell As String) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetDateSequence", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -612,6 +678,10 @@ End Function
 
 Public Function GetDaysCountConvention(ByVal wsCell As String) As Variant
 
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetDaysCountConvention", "This instance has not been initialized yet.")
+    End If
+
     wsCell = Trim$(wsCell)
 
     If (wsCell = vbNullString) Then
@@ -645,6 +715,10 @@ End Function
 
 Public Function GetDirection(ByVal wsCell As String, ByVal asObject As Boolean) As Variant
 
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetDirection", "This instance has not been initialized yet.")
+    End If
+
     wsCell = Trim$(wsCell)
 
     If (wsCell = vbNullString) Then
@@ -665,7 +739,7 @@ Public Function GetDirection(ByVal wsCell As String, ByVal asObject As Boolean) 
     
     direction = UCase$(Trim$(direction))
 
-    If (direction = vbNullString) Or ((direction <> "BUY") And (direction <> "SELL")) Then
+    If (direction <> "BUY") And (direction <> "SELL") Then
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetDirection", "The trades sheet contains an invalid direction in the cell " & wsCell & ".")
     End If
 
@@ -681,6 +755,10 @@ End Function
 ' Retrieves a Frequency from the given worksheet cell.
 
 Public Function GetFrequency(ByVal wsCell As String) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetFrequency", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -755,6 +833,10 @@ End Function
 
 Public Function GetFutureMaturity(ByVal wsCell As String) As Variant
 
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetFutureMaturity", "This instance has not been initialized yet.")
+    End If
+
     wsCell = Trim$(wsCell)
 
     If (wsCell = vbNullString) Then
@@ -798,6 +880,10 @@ End Function
 
 Public Function GetIborIndex(ByVal wsCell As String) As Variant
 
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetIborIndex", "This instance has not been initialized yet.")
+    End If
+
     wsCell = Trim$(wsCell)
 
     If (wsCell = vbNullString) Then
@@ -830,6 +916,10 @@ End Function
 ' Retrieves an OvernightAccrualMethod from the given worksheet cell.
 
 Public Function GetOvernightAccrualMethod(ByVal wsCell As String) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetOvernightAccrualMethod", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -864,6 +954,10 @@ End Function
 
 Public Function GetOvernightIndex(ByVal wsCell As String) As Variant
 
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetOvernightIndex", "This instance has not been initialized yet.")
+    End If
+
     wsCell = Trim$(wsCell)
 
     If (wsCell = vbNullString) Then
@@ -896,6 +990,10 @@ End Function
 ' Retrieves a PayReceive from the given worksheet cell.
 
 Public Function GetPaymentDirection(ByVal wsCell As String, ByVal asObject As Boolean) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetPaymentDirection", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -933,6 +1031,10 @@ End Function
 ' Retrieves a Period from the given worksheet cell.
 
 Public Function GetPeriod(ByVal wsCell As String, Optional ByVal restriction As String) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetPeriod", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -1019,6 +1121,10 @@ End Function
 
 Public Function GetPosition(ByVal wsCell As String, ByVal asObject As Boolean) As Variant
 
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetPosition", "This instance has not been initialized yet.")
+    End If
+
     wsCell = Trim$(wsCell)
 
     If (wsCell = vbNullString) Then
@@ -1056,6 +1162,10 @@ End Function
 
 Public Function GetPrice(ByVal wsCell As String) As Double
 
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetPrice", "This instance has not been initialized yet.")
+    End If
+
     wsCell = Trim$(wsCell)
 
     If (wsCell = vbNullString) Then
@@ -1074,7 +1184,7 @@ Public Function GetPrice(ByVal wsCell As String) As Double
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetPrice", "The trades sheet contains an invalid price in the cell " & wsCell & ".")
     End If
     
-    GetPrice = price
+    GetPrice = price / CDbl(100)
 
 End Function
 
@@ -1082,6 +1192,10 @@ End Function
 ' Retrieves a quantity from the given worksheet cell.
 
 Public Function GetQuantity(ByVal wsCell As String) As Double
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetQuantity", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -1110,6 +1224,10 @@ End Function
 
 Public Function GetRate(ByVal wsCell As String) As Double
 
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetRate", "This instance has not been initialized yet.")
+    End If
+
     wsCell = Trim$(wsCell)
 
     If (wsCell = vbNullString) Then
@@ -1136,6 +1254,10 @@ End Function
 ' Retrieves a Frequency from the given worksheet cell.
 
 Public Function GetTenor(ByVal wsCell As String) As Variant
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetTenor", "This instance has not been initialized yet.")
+    End If
 
     wsCell = Trim$(wsCell)
 
@@ -1217,6 +1339,12 @@ Public Sub Initialize(ByVal host As RuntimeHost, ByVal valuationDate As Date, By
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.Initialize", "A valid trades sheet must be provided.")
     End If
     
+    Dim cc As Long: cc = ws.UsedRange.Columns.Count
+    
+    If (cc <= 2) Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.Initialize", "The trades sheet contains an invalid number of columns (" & CStr(cc) & ").")
+    End If
+    
     On Error Resume Next
 
     Dim wsCurves As Worksheet: Set wsCurves = ThisWorkbook.Sheets("Setup-Curves")
@@ -1261,7 +1389,50 @@ Public Sub Initialize(ByVal host As RuntimeHost, ByVal valuationDate As Date, By
 ErrorHandler:
 
     Call PerformCleanup
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
     
 End Sub
 
+' METHOD
+' Prepares the sheet containing the cash flows.
+
+Public Function PrepareCashFlowsSheet(ByVal ws As Worksheet) As Worksheet
+
+    If Not m_Initialized Then
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.PrepareCashFlowsSheet", "This instance has not been initialized yet.")
+    End If
+
+    On Error Resume Next
+
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = ThisWorkbook.Sheets("Cash Flows")
+    
+    On Error GoTo 0
+
+    If Not wsCashFlows Is Nothing Then
+        
+        Dim alerts As Boolean: alerts = Application.DisplayAlerts
+    
+        Application.DisplayAlerts = False
+        wsCashFlows.Delete
+        Application.DisplayAlerts = alerts
+
+    End If
+
+    Set wsCashFlows = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+    
+    With wsCashFlows.Cells
+        .Font.Name = "Calibri"
+        .Font.Size = 10
+        .Interior.Color = 15132391
+        .Style.HorizontalAlignment = xlHAlignCenter
+        .Style.VerticalAlignment = xlCenter
+    End With
+    
+    wsCashFlows.Name = "Cash Flows"
+    wsCashFlows.Tab.Color = 11573124
+
+    ws.Activate
+
+    Set PrepareCashFlowsSheet = wsCashFlows
+
+End Function

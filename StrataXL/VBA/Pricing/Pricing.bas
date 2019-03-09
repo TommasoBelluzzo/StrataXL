@@ -7,43 +7,6 @@ Attribute VB_Name = "Pricing"
 
 Option Explicit
 
-Private Function PrepareCashFlows(ByVal wsCurrent As Worksheet) As Worksheet
-
-    On Error Resume Next
-
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = ThisWorkbook.Sheets("Cash Flows")
-    
-    On Error GoTo 0
-
-    If Not wsCashFlows Is Nothing Then
-        
-        Dim alerts As Boolean: alerts = Application.DisplayAlerts
-    
-        Application.DisplayAlerts = False
-        wsCashFlows.Delete
-        Application.DisplayAlerts = alerts
-
-    End If
-
-    Set wsCashFlows = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
-    
-    With wsCashFlows.Cells
-        .Font.Name = "Calibri"
-        .Font.Size = 10
-        .Interior.Color = 15132391
-        .Style.HorizontalAlignment = xlHAlignCenter
-        .Style.VerticalAlignment = xlCenter
-    End With
-    
-    wsCashFlows.Name = "Cash Flows"
-    wsCashFlows.Tab.Color = 11573124
-
-    wsCurrent.Activate
-
-    Set PrepareCashFlows = wsCashFlows
-
-End Function
-
 Public Sub PricingFxNonDeliverable()
 
     Dim form As New ReferenceData: form.Show
@@ -61,25 +24,17 @@ Public Sub PricingFxNonDeliverable()
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
     
-    Dim i As Long, j As Long
-    
-    If (rc <= 1) Then
-        Exit Sub
-    Else
-        For i = 2 To rc
-            For j = cc - 1 To cc
-                ws.Cells(i, j).ClearContents
-            Next j
-        Next i
-    End If
-    
     Dim host As New RuntimeHost: Call host.Initialize
     Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
     
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = PrepareCashFlows(ws)
+    Call dd.CleanCurrentTradesSheet(False, False)
+    
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.fx.FxNdfTradeCalculations", "DEFAULT")
+
+    Dim i As Long
 
     For i = 2 To rc
 
@@ -252,7 +207,7 @@ ErrorHandler:
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 
@@ -273,32 +228,18 @@ Public Sub PricingFxSingle()
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
     
-    Dim i As Long, j As Long
-    
-    If (rc <= 1) Then
-        Exit Sub
-    Else
-
-        If (((rc - 1) Mod 2) <> 0) Then
-            Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxSingle", "The trades sheet contains an invalid number of rows (" & CStr(rc) & ").")
-        End If
-    
-        For i = 2 To rc
-            For j = cc - 1 To cc
-                ws.Cells(i, j).ClearContents
-            Next j
-        Next i
-
-    End If
-    
     Dim host As New RuntimeHost: Call host.Initialize
     Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
     
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = PrepareCashFlows(ws)
+    Call dd.CleanCurrentTradesSheet(False, True)
+    
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.fx.FxSingleTradeCalculations", "DEFAULT")
+
     Dim id As Long: id = 1
+    Dim i As Long, j As Long
 
     For i = 2 To rc Step 2
 
@@ -475,7 +416,7 @@ ErrorHandler:
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 
@@ -495,33 +436,19 @@ Public Sub PricingFxSwap()
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("FX Swap")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
-    
-    Dim i As Long, j As Long
-    
-    If (rc <= 2) Then
-        Exit Sub
-    Else
-
-        If (((rc - 2) Mod 2) <> 0) Then
-            Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxSwap", "The trades sheet contains an invalid number of rows (" & CStr(rc) & ").")
-        End If
-    
-        For i = 3 To rc
-            For j = cc - 1 To cc
-                ws.Cells(i, j).ClearContents
-            Next j
-        Next i
-
-    End If
 
     Dim host As New RuntimeHost: Call host.Initialize
     Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
 
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = PrepareCashFlows(ws)
+    Call dd.CleanCurrentTradesSheet(True, True)
+
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.fx.FxSwapTradeCalculations", "DEFAULT")
+    
     Dim id As Long: id = 1
+    Dim i As Long, j As Long
 
     For i = 3 To rc Step 2
     
@@ -713,7 +640,7 @@ ErrorHandler:
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 
@@ -734,25 +661,17 @@ Public Sub PricingBulletPayment()
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
     
-    Dim i As Long, j As Long
-    
-    If (rc <= 1) Then
-        Exit Sub
-    Else
-        For i = 2 To rc
-            For j = cc - 1 To cc
-                ws.Cells(i, j).ClearContents
-            Next j
-        Next i
-    End If
-    
     Dim host As New RuntimeHost: Call host.Initialize
     Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
     
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = PrepareCashFlows(ws)
+    Call dd.CleanCurrentTradesSheet(False, False)
+    
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
     
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.payment.BulletPaymentTradeCalculations", "DEFAULT")
+
+    Dim i As Long
 
     For i = 2 To rc
     
@@ -885,7 +804,7 @@ ErrorHandler:
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 
@@ -906,25 +825,17 @@ Public Sub PricingTermDeposit()
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
     
-    Dim i As Long, j As Long
-    
-    If (rc <= 1) Then
-        Exit Sub
-    Else
-        For i = 2 To rc
-            For j = cc - 1 To cc
-                ws.Cells(i, j).ClearContents
-            Next j
-        Next i
-    End If
-    
     Dim host As New RuntimeHost: Call host.Initialize
     Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
     
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = PrepareCashFlows(ws)
+    Call dd.CleanCurrentTradesSheet(False, False)
+    
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
     
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.deposit.TermDepositTradeCalculations", "DEFAULT")
+
+    Dim i As Long, j As Long
 
     For i = 2 To rc
     
@@ -1072,7 +983,7 @@ ErrorHandler:
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 
@@ -1093,32 +1004,18 @@ Public Sub PricingCrossCurrencySwap()
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
 
-    Dim i As Long, j As Long
-    
-    If (rc <= 2) Then
-        Exit Sub
-    Else
-
-        If (((rc - 2) Mod 2) <> 0) Then
-            Call Err.Raise(vbObjectError + 1, "Pricing.PricingCrossCurrencySwap", "The trades sheet contains an invalid number of rows (" & CStr(rc) & ").")
-        End If
-    
-        For i = 3 To rc
-            For j = cc - 1 To cc
-                ws.Cells(i, j).ClearContents
-            Next j
-        Next i
-
-    End If
-    
     Dim host As New RuntimeHost: Call host.Initialize
     Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
 
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = PrepareCashFlows(ws)
+    Call dd.CleanCurrentTradesSheet(True, True)
+
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.swap.SwapTradeCalculations", "DEFAULT")
+    
     Dim id As Long: id = 1
+    Dim i As Long, j As Long
 
     For i = 3 To rc Step 2
 
@@ -1354,7 +1251,7 @@ ErrorHandler:
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 
@@ -1371,29 +1268,21 @@ Public Sub PricingFra()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
 
-    Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("FRA")
+    Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("Forward Rate Agreement")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
 
-    Dim i As Long, j As Long
-    
-    If (rc <= 1) Then
-        Exit Sub
-    Else
-        For i = 2 To rc
-            For j = cc - 1 To cc
-                ws.Cells(i, j).ClearContents
-            Next j
-        Next i
-    End If
-    
     Dim host As New RuntimeHost: Call host.Initialize
     Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
 
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = PrepareCashFlows(ws)
+    Call dd.CleanCurrentTradesSheet(False, False)
+
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.fra.FraTradeCalculations", "DEFAULT")
+
+    Dim i As Long
 
     For i = 2 To rc
 
@@ -1504,7 +1393,7 @@ Public Sub PricingFra()
     
     With wsCashFlows.UsedRange.Rows(0)
         .Merge
-        .Value2 = "FRA TRADES"
+        .Value2 = "FORWARD RATE AGREEMENT TRADES"
         .Borders.Color = 0
         .Borders.LineStyle = xlContinuous
         .Borders.Weight = xlThin
@@ -1523,7 +1412,7 @@ ErrorHandler:
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 
@@ -1543,26 +1432,18 @@ Public Sub PricingInterestRateFuture()
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("Interest Rate Future")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
-
-    Dim i As Long, j As Long
-    
-    If (rc <= 1) Then
-        Exit Sub
-    Else
-        For i = 2 To rc
-            For j = cc - 1 To cc
-                ws.Cells(i, j).ClearContents
-            Next j
-        Next i
-    End If
     
     Dim host As New RuntimeHost: Call host.Initialize
     Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
     
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = PrepareCashFlows(ws)
+    Call dd.CleanCurrentTradesSheet(False, False)
+    
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
     
     Dim valuationDate As Variant: Set valuationDate = host.InvokeMethod(dd.RatesProvider, "getValuationDate")
+
+    Dim i As Long
 
     For i = 2 To rc
 
@@ -1578,7 +1459,7 @@ Public Sub PricingInterestRateFuture()
         
         tradeType = UCase$(Trim$(tradeType))
     
-        If (tradeType = vbNullString) Or ((tradeType <> "IBOR") And (tradeType <> "OVERNIGHT")) Then
+        If (tradeType <> "IBOR") And (tradeType <> "OVERNIGHT") Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingInterestRateSwap", "The trade " & CStr(i - 1) & " is defined on an invalid type.")
         End If
 
@@ -1779,7 +1660,7 @@ ErrorHandler:
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 
@@ -1800,26 +1681,18 @@ Public Sub PricingInterestRateSwap()
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
 
-    Dim i As Long, j As Long
-    
-    If (rc <= 2) Then
-        Exit Sub
-    Else
-        For i = 3 To rc
-            For j = cc - 1 To cc
-                ws.Cells(i, j).ClearContents
-            Next j
-        Next i
-    End If
-    
     Dim host As New RuntimeHost: Call host.Initialize
     Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
 
-    Dim wsCashFlows As Worksheet: Set wsCashFlows = PrepareCashFlows(ws)
+    Call dd.CleanCurrentTradesSheet(True, False)
+
+    Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.swap.SwapTradeCalculations", "DEFAULT")
     Dim valuationDate As Variant: Set valuationDate = host.InvokeMethod(dd.RatesProvider, "getValuationDate")
+
+    Dim i As Long, j As Long
 
     For i = 3 To rc
 
@@ -2219,7 +2092,7 @@ ErrorHandler:
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 
-    Call Err.Raise(Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext)
+    Call Err.Raise(Err.Number, Err.Source, Err.Description)
 
 End Sub
 
