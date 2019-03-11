@@ -66,18 +66,9 @@ Const WS_SYSMENU As Long = &H80000
 
 ' MEMBERS
 
-Dim m_ReferenceValuationDate As Date
 Dim m_ReferenceBusinessDays As String
 Dim m_ReferenceCurrency As String
-
-' PROPERTY
-' Gets the reference valuation date.
-
-Property Get ReferenceValuationDate() As Variant
-
-    ReferenceValuationDate = m_ReferenceValuationDate
-
-End Property
+Dim m_ReferenceValuationDate As Date
 
 ' PROPERTY
 ' Gets the reference currency.
@@ -94,6 +85,15 @@ End Property
 Property Get ReferenceCurrency() As String
 
     ReferenceCurrency = m_ReferenceCurrency
+
+End Property
+
+' PROPERTY
+' Gets the reference valuation date.
+
+Property Get ReferenceValuationDate() As Variant
+
+    ReferenceValuationDate = m_ReferenceValuationDate
 
 End Property
 
@@ -154,9 +154,9 @@ Private Sub ButtonOk_Click()
     FieldValuationDate.BackColor = &H8000000F
     FieldValuationDate.BorderColor = &H80000012
     
-    m_ReferenceValuationDate = CDate(vd)
     m_ReferenceBusinessDays = FieldBusinessDays.Text
     m_ReferenceCurrency = FieldCurrency.Text
+    m_ReferenceValuationDate = CDate(vd)
 
     Me.Hide
 

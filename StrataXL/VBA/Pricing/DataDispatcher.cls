@@ -19,13 +19,16 @@ Option Explicit
 
 ' MEMBERS
 
+Dim m_BusinessDays As Variant
+Dim m_Calendar As Variant
+Dim m_Currency As Variant
+Dim m_DateFormatter As Variant
+Dim m_Host As RuntimeHost
 Dim m_Initialized As Boolean
 Dim m_RatesProvider As Variant
-Dim m_ReferenceBusinessDays As Variant
-Dim m_ReferenceCalendar As Variant
 Dim m_ReferenceData As Variant
-Dim m_ReferenceDateFormatter As Variant
-Dim m_Host As RuntimeHost
+Dim m_ValuationDate As Variant
+Dim m_ValuationDatePlain As Date
 Dim m_Worksheet As Worksheet
 
 ' CONSTRUCTOR
@@ -45,7 +48,34 @@ Private Sub Class_Terminate()
 End Sub
 
 ' PROPERTY
-' Gets the instance of the RatesProvider.
+' Gets the instance of the BusinessDaysConvention representing the reference business days convention.
+
+Property Get BusinessDays() As Variant
+
+    Set BusinessDays = m_BusinessDays
+
+End Property
+
+' PROPERTY
+' Gets the instance of the HolidayCalendarId representing the reference calendar.
+
+Property Get Calendar() As Variant
+
+    Set Calendar = m_Calendar
+
+End Property
+
+' PROPERTY
+' Gets the instance of the DateFormatter representing the reference date formatter.
+
+Property Get DateFormatter() As Variant
+
+    Set DateFormatter = m_DateFormatter
+
+End Property
+
+' PROPERTY
+' Gets the instance of the RatesProvider representing the reference financial data provider.
 
 Property Get RatesProvider() As Variant
 
@@ -54,25 +84,7 @@ Property Get RatesProvider() As Variant
 End Property
 
 ' PROPERTY
-' Gets the instance of the reference business days convention.
-
-Property Get ReferenceBusinessDays() As Variant
-
-    Set ReferenceBusinessDays = m_ReferenceBusinessDays
-
-End Property
-
-' PROPERTY
-' Gets the instance of the reference currency.
-
-Property Get ReferenceCalendar() As Variant
-
-    Set ReferenceCalendar = m_ReferenceCalendar
-
-End Property
-
-' PROPERTY
-' Gets the instance of the reference data.
+' Gets the instance of the ReferenceData representing the reference financial data.
 
 Property Get ReferenceData() As Variant
 
@@ -81,11 +93,20 @@ Property Get ReferenceData() As Variant
 End Property
 
 ' PROPERTY
-' Gets the instance of the reference date formatter.
+' Gets the instance of the LocalData representing the reference valuation date.
 
-Property Get ReferenceDateFormatter() As Variant
+Property Get ValuationDate() As Variant
 
-    Set ReferenceDateFormatter = m_ReferenceDateFormatter
+    Set ValuationDate = m_ValuationDate
+
+End Property
+
+' PROPERTY
+' Gets the valuation date.
+
+Property Get ValuationDatePlain() As Date
+
+    ValuationDatePlain = m_ValuationDatePlain
 
 End Property
 
@@ -115,61 +136,61 @@ Private Sub ParseWorksheetCurves(ByVal ws As Worksheet, ByVal ratesProviderBuild
         Dim curveType As Variant: curveType = ws.Cells(1, i).Value2
     
         If IsEmpty(curveType) Or (VarType(curveType) <> vbString) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid curve type in the cell " & ws.Cells(1, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid curve type in the cell " & ws.Cells(1, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
         
         curveType = UCase$(Trim$(curveType))
         
         If (curveType <> "DISCOUNT") And (curveType <> "OVERNIGHT") And (curveType <> "FORWARD") Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid curve type in the cell " & ws.Cells(1, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid curve type in the cell " & ws.Cells(1, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
 
         Dim reference As Variant: reference = ws.Cells(2, i).Value2
         
         If IsEmpty(reference) Or (VarType(reference) <> vbString) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid reference in the cell " & ws.Cells(2, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid reference in the cell " & ws.Cells(2, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
         
         reference = UCase$(Trim$(reference))
         
         If (reference = vbNullString) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid reference in the cell " & ws.Cells(2, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid reference in the cell " & ws.Cells(2, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
 
         Dim interpolation As Variant: interpolation = ws.Cells(3, i).Value2
         
         If IsEmpty(interpolation) Or (VarType(interpolation) <> vbString) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid interpolation in the cell " & ws.Cells(3, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid interpolation in the cell " & ws.Cells(3, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
         
-        interpolation = UCase$(Trim$(interpolation))
+        interpolation = Replace$(UCase$(Trim$(interpolation)), " ", "_")
         
         If (interpolation = vbNullString) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid interpolation in the cell " & ws.Cells(3, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid interpolation in the cell " & ws.Cells(3, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
 
         Dim extrapolation As Variant: extrapolation = ws.Cells(4, i).Value2
         
         If IsEmpty(extrapolation) Or (VarType(extrapolation) <> vbString) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid extrapolation in the cell " & ws.Cells(4, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid extrapolation in the cell " & ws.Cells(4, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
         
-        extrapolation = UCase$(Trim$(extrapolation))
+        extrapolation = Replace$(UCase$(Trim$(extrapolation)), " ", "_")
         
         If (extrapolation = vbNullString) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid extrapolation in the cell " & ws.Cells(4, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid extrapolation in the cell " & ws.Cells(4, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
 
-        Dim basis As Variant: basis = ws.Cells(5, i).Value2
+        Dim dcc As Variant: dcc = ws.Cells(5, i).Value2
         
-        If IsEmpty(basis) Or (VarType(basis) <> vbString) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid basis in the cell " & ws.Cells(5, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+        If IsEmpty(dcc) Or (VarType(dcc) <> vbString) Then
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid days count convention in the cell " & ws.Cells(5, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
         
-        basis = UCase$(Trim$(basis))
+        dcc = UCase$(Trim$(dcc))
         
-        If (basis = vbNullString) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains invalid basis in the cell " & ws.Cells(5, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+        If (dcc = vbNullString) Then
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid days count convention in the cell " & ws.Cells(5, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
 
         Dim times() As Double: ReDim times(rc - 7)
@@ -181,8 +202,16 @@ Private Sub ParseWorksheetCurves(ByVal ws As Worksheet, ByVal ratesProviderBuild
             Dim time As Variant: time = ws.Cells(j, i).Value2
             Dim rate As Variant: rate = ws.Cells(j, i + 1).Value2
             
-            If IsEmpty(time) Or Not IsNumeric(time) Or IsEmpty(rate) Or Not IsNumeric(rate) Then
+            If IsEmpty(time) Or IsEmpty(rate) Then
                 Exit For
+            End If
+            
+            If Not IsNumeric(time) Or (time < 0) Then
+                Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid time in the cell " & ws.Cells(j, i).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+            End If
+            
+            If Not IsNumeric(rate) Then
+                Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains an invalid rate in the cell " & ws.Cells(j, i + 1).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
             End If
 
             times(j - 7) = time
@@ -191,13 +220,13 @@ Private Sub ParseWorksheetCurves(ByVal ws As Worksheet, ByVal ratesProviderBuild
         
         Next j
         
-        If (entriesCount = 0) Then
-            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" contains no data for " & reference & ".")
+        If (entriesCount < 10) Then
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetCurves", "The sheet ""Setup-Curves"" must contain at least 10 observations for " & reference & " (any empty cell stops the loop).")
         End If
         
-        Set interpolation = m_Host.GetPropertyStaticFromName("com.opengamma.strata.market.curve.interpolator.CurveInterpolators", Replace$(interpolation, " ", "_"))
-        Set extrapolation = m_Host.GetPropertyStaticFromName("com.opengamma.strata.market.curve.interpolator.CurveExtrapolators", Replace$(extrapolation, " ", "_"))
-        Set basis = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DayCount", "of", basis)
+        Set interpolation = m_Host.GetPropertyStaticFromName("com.opengamma.strata.market.curve.interpolator.CurveInterpolators", interpolation)
+        Set extrapolation = m_Host.GetPropertyStaticFromName("com.opengamma.strata.market.curve.interpolator.CurveExtrapolators", extrapolation)
+        Set dcc = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DayCount", "of", dcc)
         
         ReDim Preserve times(entriesCount - 1)
         Dim timesArray As Variant: Set timesArray = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.collect.array.DoubleArray", "ofUnsafe", times)
@@ -210,14 +239,14 @@ Private Sub ParseWorksheetCurves(ByVal ws As Worksheet, ByVal ratesProviderBuild
             Case "DISCOUNT"
             
                 Dim discountCcy As Variant: Set discountCcy = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", reference)
-                Dim discountFactors As Variant: Set discountFactors = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.Curves", "discountFactors", reference & "-DISCOUNT", basis)
+                Dim discountFactors As Variant: Set discountFactors = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.Curves", "discountFactors", reference & "-DISCOUNT", dcc)
                 Dim discountCurve As Variant: Set discountCurve = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.InterpolatedNodalCurve", "of", discountFactors, timesArray, ratesArray, interpolation, extrapolation, extrapolation)
                 Call m_Host.InvokeMethod(ratesProviderBuilder, "discountCurve", discountCcy, discountCurve)
                 
             Case "FORWARD"
 
                 Dim forwardIndex As Variant: Set forwardIndex = m_Host.GetPropertyStaticFromName("com.opengamma.strata.basics.index.IborIndices", Replace$(reference, "-", "_"))
-                Dim forwardRates As Variant: Set forwardRates = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.Curves", "zeroRates", reference, basis)
+                Dim forwardRates As Variant: Set forwardRates = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.Curves", "zeroRates", reference, dcc)
                 Dim forwardCurve As Variant: Set forwardCurve = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.InterpolatedNodalCurve", "of", forwardRates, timesArray, ratesArray, interpolation, extrapolation, extrapolation)
                 Dim forwardTimeSeriesPath As String: forwardTimeSeriesPath = ThisWorkbook.Path & "\Data\" & reference & ".csv"
         
@@ -238,7 +267,7 @@ Private Sub ParseWorksheetCurves(ByVal ws As Worksheet, ByVal ratesProviderBuild
             Case "OVERNIGHT"
             
                 Dim overnightIndex As Variant: Set overnightIndex = m_Host.GetPropertyStaticFromName("com.opengamma.strata.basics.index.OvernightIndices", Replace$(reference, "-", "_"))
-                Dim overnightRates As Variant: Set overnightRates = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.Curves", "zeroRates", reference, basis)
+                Dim overnightRates As Variant: Set overnightRates = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.Curves", "zeroRates", reference, dcc)
                 Dim overnightCurve As Variant: Set overnightCurve = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.InterpolatedNodalCurve", "of", overnightRates, timesArray, ratesArray, interpolation, extrapolation, extrapolation)
                 Dim overnightTimeSeriesPath As String: overnightTimeSeriesPath = ThisWorkbook.Path & "\Data\" & reference & ".csv"
         
@@ -331,15 +360,18 @@ End Sub
 
 Private Sub PerformCleanup()
 
-    m_Initialized = False
-
+    Set m_BusinessDays = Nothing
+    Set m_Calendar = Nothing
+    Set m_Currency = Nothing
+    Set m_DateFormatter = Nothing
     Set m_Host = Nothing
     Set m_RatesProvider = Nothing
-    Set m_ReferenceBusinessDays = Nothing
-    Set m_ReferenceCalendar = Nothing
     Set m_ReferenceData = Nothing
-    Set m_ReferenceDateFormatter = Nothing
+    Set m_ValuationDate = Nothing
+    m_ValuationDatePlain = Empty
     Set m_Worksheet = Nothing
+    
+    m_Initialized = False
     
 End Sub
 
@@ -503,19 +535,19 @@ Public Function GetCalendar(ByVal wsCell As String) As Variant
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetCalendar", "A valid cell must be provided.")
     End If
     
-    Dim calendar As Variant: calendar = r.Value2
+    Dim Calendar As Variant: Calendar = r.Value2
 
-    If IsEmpty(calendar) Or (VarType(calendar) <> vbString) Then
+    If IsEmpty(Calendar) Or (VarType(Calendar) <> vbString) Then
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetCalendar", "The trades sheet contains an invalid calendar in the cell " & wsCell & ".")
     End If
     
-    calendar = UCase$(Trim$(calendar))
+    Calendar = UCase$(Trim$(Calendar))
         
-    If (Len(calendar) <> 4) Then
+    If (Len(Calendar) <> 4) Then
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.GetCurrency", "The trades sheet contains an invalid calendar in the cell " & wsCell & ".")
     End If
 
-    Set GetCalendar = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "of", calendar)
+    Set GetCalendar = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "of", Calendar)
 
 End Function
 
@@ -1325,7 +1357,7 @@ End Function
 ' METHOD
 ' Initializes an instance of the DataDispatcher class.
 
-Public Sub Initialize(ByVal host As RuntimeHost, ByVal valuationDate As Date, ByVal bdc As Variant, ByVal ccy As Variant, ByVal ws As Worksheet)
+Public Sub Initialize(ByVal host As RuntimeHost, ByVal ws As Worksheet)
 
     If m_Initialized Then
         Exit Sub
@@ -1349,40 +1381,49 @@ Public Sub Initialize(ByVal host As RuntimeHost, ByVal valuationDate As Date, By
 
     Dim wsCurves As Worksheet: Set wsCurves = ThisWorkbook.Sheets("Setup-Curves")
     
-    On Error GoTo ErrorHandler
+    On Error GoTo 0
     
     If wsCurves Is Nothing Then
-        Call Err.Raise(vbObjectError + 1, "DataDispatcher.Initialize", "The setup sheet of curves (Setup-Curves) could not be found.")
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.Initialize", "The sheet ""Setup-Curves"" could not be found.")
     End If
     
     On Error Resume Next
     
-    On Error GoTo ErrorHandler
-
     Dim wsExchange As Worksheet: Set wsExchange = ThisWorkbook.Sheets("Setup-Exchange")
     
+    On Error GoTo 0
+
     If wsExchange Is Nothing Then
-        Call Err.Raise(vbObjectError + 1, "DataDispatcher.Initialize", "The setup sheet of exchange rates (Setup-Exchange) could not be found.")
+        Call Err.Raise(vbObjectError + 1, "DataDispatcher.Initialize", "The sheet ""Setup-Exchange"" could not be found.")
     End If
-
+    
     On Error GoTo ErrorHandler
-
-    m_Initialized = True
+    
+    Dim form As New ReferenceData: form.Show
+    Dim vd As Date: vd = form.ReferenceValuationDate
+    Dim bdc As String: bdc = form.ReferenceBusinessDays
+    Dim ccy As Variant: ccy = form.ReferenceCurrency
+    Call Unload(form)
 
     Set m_Host = host
     Set m_Worksheet = ws
-    
-    Dim vd As Variant: Set vd = m_Host.InvokeMethodStaticFromName("java.time.LocalDate", "of", Year(valuationDate), Month(valuationDate), Day(valuationDate))
-    Dim ratesProviderBuilder As Variant: Set ratesProviderBuilder = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.pricer.rate.ImmutableRatesProvider", "builder", vd)
+
+    Dim vdo As Variant: Set vdo = m_Host.InvokeMethodStaticFromName("java.time.LocalDate", "of", Year(vd), Month(vd), Day(vd))
+
+    Dim ratesProviderBuilder As Variant: Set ratesProviderBuilder = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.pricer.rate.ImmutableRatesProvider", "builder", vdo)
     Call ParseWorksheetCurves(wsCurves, ratesProviderBuilder)
     Call ParseWorksheetExchange(wsExchange, ratesProviderBuilder)
     Set m_RatesProvider = m_Host.InvokeMethod(ratesProviderBuilder, "build")
-    
-    Set ccy = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", ccy)
-    Set m_ReferenceBusinessDays = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayConvention", "of", Replace$(bdc, " ", ""))
-    Set m_ReferenceCalendar = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccy)
+
+    Set m_Currency = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", ccy)
+    Set m_BusinessDays = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayConvention", "of", Replace$(bdc, " ", ""))
+    Set m_Calendar = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", m_Currency)
     Set m_ReferenceData = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.ReferenceData", "standard")
-    Set m_ReferenceDateFormatter = m_Host.InvokeMethodStaticFromName("java.time.format.DateTimeFormatter", "ofPattern", "dd/MM/yyyy")
+    Set m_DateFormatter = m_Host.InvokeMethodStaticFromName("java.time.format.DateTimeFormatter", "ofPattern", "dd/MM/yyyy")
+    Set m_ValuationDate = ValuationDate
+    m_ValuationDatePlain = vd
+    
+    m_Initialized = True
 
     Exit Sub
 

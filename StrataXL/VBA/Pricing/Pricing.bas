@@ -9,23 +9,17 @@ Option Explicit
 
 Public Sub PricingFxNonDeliverable()
 
-    Dim form As New ReferenceData: form.Show
-    Dim refValuationDate As Date: refValuationDate = form.ReferenceValuationDate
-    Dim refBDC As String: refBDC = form.ReferenceBusinessDays
-    Dim refCcy As String: refCcy = form.ReferenceCurrency
-    Call Unload(form)
-    
     On Error GoTo ErrorHandler
-    
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
 
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("FX Non-Deliverable")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
     
     Dim host As New RuntimeHost: Call host.Initialize
-    Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
+    Dim dd As New DataDispatcher: Call dd.Initialize(host, ws)
+    
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
     
     Call dd.CleanCurrentTradesSheet(False, False)
     
@@ -38,7 +32,7 @@ Public Sub PricingFxNonDeliverable()
 
     For i = 2 To rc
 
-        If (DateDiff("d", refValuationDate, ws.Cells(i, 6).Value2) > 0) Then
+        If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 6).Value2) > 0) Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxNonDeliverable", "The trade " & CStr(i - 1) & " must have a trade date less than or equal to the valuation date.")
         End If
         
@@ -68,16 +62,16 @@ Public Sub PricingFxNonDeliverable()
         Dim ccyPair As Variant: Set ccyPair = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.CurrencyPair", "of", ccySettlement, ccyNonDeliverable)
         Dim ccyPairName As String: ccyPairName = Replace$(UCase$(host.InvokeMethod(ccyPair, "toString")), "/", "-")
 
-        Dim calendar As Variant: Set calendar = host.InvokeMethod(dd.ReferenceCalendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.ReferenceBusinessDays, calendar)
+        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
         Set maturityDate = host.InvokeMethod(bda, "adjust", maturityDate, dd.ReferenceData)
 
         Dim calendarSettlement As Variant: Set calendarSettlement = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccySettlement)
         Dim calendarNonDeliverable As Variant: Set calendarNonDeliverable = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccyNonDeliverable)
         Dim calendarIndex As Variant: Set calendarIndex = host.InvokeMethod(calendarSettlement, "combinedWith", calendarNonDeliverable)
-        Dim adjustmentFixing As Variant: Set adjustmentFixing = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, calendar)
-        Dim adjustmentMaturity As Variant: Set adjustmentMaturity = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, calendar)
+        Dim adjustmentFixing As Variant: Set adjustmentFixing = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, Calendar)
+        Dim adjustmentMaturity As Variant: Set adjustmentMaturity = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, Calendar)
 
         Dim indexBuilder As Variant: Set indexBuilder = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.index.ImmutableFxIndex", "builder")
         Call host.InvokeMethod(indexBuilder, "currencyPair", ccyPair)
@@ -150,7 +144,7 @@ Public Sub PricingFxNonDeliverable()
             Dim cfObservedRate As Double: cfObservedRate = host.InvokeMethod(cfIndexRate, "rate", pObservation, ccySettlement)
             Dim cfNotional As Variant: Set cfNotional = host.InvokeMethod(pNotional, "multipliedBy", CDbl(1) - (cfFxRate / cfObservedRate))
             
-            Dim cfDate As String: cfDate = host.InvokeMethod(pPaymentDate, "format", dd.ReferenceDateFormatter)
+            Dim cfDate As String: cfDate = host.InvokeMethod(pPaymentDate, "format", dd.DateFormatter)
             Dim cfAmount As Double: cfAmount = host.InvokeMethod(cfNotional, "getAmount")
 
             With wsCashFlows.Cells(3, cashFlowsOffset)
@@ -212,24 +206,18 @@ ErrorHandler:
 End Sub
 
 Public Sub PricingFxSingle()
-
-    Dim form As New ReferenceData: form.Show
-    Dim refValuationDate As Date: refValuationDate = form.ReferenceValuationDate
-    Dim refBDC As String: refBDC = form.ReferenceBusinessDays
-    Dim refCcy As String: refCcy = form.ReferenceCurrency
-    Call Unload(form)
     
     On Error GoTo ErrorHandler
-    
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
 
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("FX Single")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
     
     Dim host As New RuntimeHost: Call host.Initialize
-    Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
+    Dim dd As New DataDispatcher: Call dd.Initialize(host, ws)
+    
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
     
     Call dd.CleanCurrentTradesSheet(False, True)
     
@@ -243,7 +231,7 @@ Public Sub PricingFxSingle()
 
     For i = 2 To rc Step 2
 
-        If (DateDiff("d", refValuationDate, ws.Cells(i, 6).Value2) > 0) Then
+        If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 6).Value2) > 0) Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxSingle", "The trade " & CStr(id) & " must have a trade date less than or equal to the valuation date.")
         End If
         
@@ -273,8 +261,8 @@ Public Sub PricingFxSingle()
         Dim ccyBase As Variant: Set ccyBase = host.InvokeMethod(amountBase, "getCurrency")
         Dim ccyCounter As Variant: Set ccyCounter = host.InvokeMethod(amountCounter, "getCurrency")
 
-        Dim calendar As Variant: Set calendar = host.InvokeMethod(dd.ReferenceCalendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.ReferenceBusinessDays, calendar)
+        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
         Set maturityDate = host.InvokeMethod(bda, "adjust", maturityDate, dd.ReferenceData)
 
@@ -349,7 +337,7 @@ Public Sub PricingFxSingle()
             Dim pPaymentBase As Variant: Set pPaymentBase = host.InvokeMethod(product, "getBaseCurrencyPayment")
             Dim pPaymentCounter As Variant: Set pPaymentCounter = host.InvokeMethod(product, "getCounterCurrencyPayment")
 
-            Dim cfDate As String: cfDate = host.InvokeMethod(pPaymentDate, "format", dd.ReferenceDateFormatter)
+            Dim cfDate As String: cfDate = host.InvokeMethod(pPaymentDate, "format", dd.DateFormatter)
 
             Dim cfValues() As Variant: ReDim cfValues(1, 1)
             cfValues(0, 0) = CStr(ccyBase)
@@ -421,24 +409,18 @@ ErrorHandler:
 End Sub
 
 Public Sub PricingFxSwap()
-
-    Dim form As New ReferenceData: form.Show
-    Dim refValuationDate As Date: refValuationDate = form.ReferenceValuationDate
-    Dim refBDC As String: refBDC = form.ReferenceBusinessDays
-    Dim refCcy As String: refCcy = form.ReferenceCurrency
-    Call Unload(form)
     
     On Error GoTo ErrorHandler
-    
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
 
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("FX Swap")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
 
     Dim host As New RuntimeHost: Call host.Initialize
-    Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
+    Dim dd As New DataDispatcher: Call dd.Initialize(host, ws)
+    
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
 
     Call dd.CleanCurrentTradesSheet(True, True)
 
@@ -452,7 +434,7 @@ Public Sub PricingFxSwap()
 
     For i = 3 To rc Step 2
     
-        If (DateDiff("d", refValuationDate, ws.Cells(i, 5).Value2) > 0) Then
+        If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 5).Value2) > 0) Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxSwap", "The trade " & CStr(id) & " must have a trade date less than or equal to the valuation date.")
         End If
         
@@ -482,8 +464,8 @@ Public Sub PricingFxSwap()
 
         Dim ccyBase As Variant: Set ccyBase = host.InvokeMethod(amountBase, "getCurrency")
 
-        Dim calendar As Variant: Set calendar = host.InvokeMethod(dd.ReferenceCalendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.ReferenceBusinessDays, calendar)
+        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
         Set paymentDateNear = host.InvokeMethod(bda, "adjust", paymentDateNear, dd.ReferenceData)
         Set paymentDateFar = host.InvokeMethod(bda, "adjust", paymentDateFar, dd.ReferenceData)
@@ -568,16 +550,16 @@ Public Sub PricingFxSwap()
             Dim pPaymentFarCounter As Variant: Set pPaymentFarCounter = host.InvokeMethod(pLegFar, "getCounterCurrencyPayment")
 
             Dim cfValues() As Variant: ReDim cfValues(3, 2)
-            cfValues(0, 0) = host.InvokeMethod(pPaymentNearDate, "format", dd.ReferenceDateFormatter)
+            cfValues(0, 0) = host.InvokeMethod(pPaymentNearDate, "format", dd.DateFormatter)
             cfValues(0, 1) = host.InvokeMethod(pPaymentNearBase, "getAmount")
             cfValues(0, 2) = CStr(ccyBase)
-            cfValues(1, 0) = host.InvokeMethod(pPaymentNearDate, "format", dd.ReferenceDateFormatter)
+            cfValues(1, 0) = host.InvokeMethod(pPaymentNearDate, "format", dd.DateFormatter)
             cfValues(1, 1) = host.InvokeMethod(pPaymentNearCounter, "getAmount")
             cfValues(1, 2) = CStr(ccyCounter)
-            cfValues(2, 0) = host.InvokeMethod(pPaymentFarDate, "format", dd.ReferenceDateFormatter)
+            cfValues(2, 0) = host.InvokeMethod(pPaymentFarDate, "format", dd.DateFormatter)
             cfValues(2, 1) = host.InvokeMethod(pPaymentFarBase, "getAmount")
             cfValues(2, 2) = CStr(ccyBase)
-            cfValues(3, 0) = host.InvokeMethod(pPaymentFarDate, "format", dd.ReferenceDateFormatter)
+            cfValues(3, 0) = host.InvokeMethod(pPaymentFarDate, "format", dd.DateFormatter)
             cfValues(3, 1) = host.InvokeMethod(pPaymentFarCounter, "getAmount")
             cfValues(3, 2) = CStr(ccyCounter)
             
@@ -645,24 +627,18 @@ ErrorHandler:
 End Sub
 
 Public Sub PricingBulletPayment()
-
-    Dim form As New ReferenceData: form.Show
-    Dim refValuationDate As Date: refValuationDate = form.ReferenceValuationDate
-    Dim refBDC As String: refBDC = form.ReferenceBusinessDays
-    Dim refCcy As String: refCcy = form.ReferenceCurrency
-    Call Unload(form)
     
     On Error GoTo ErrorHandler
-    
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
 
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("Bullet Payment")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
     
     Dim host As New RuntimeHost: Call host.Initialize
-    Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
+    Dim dd As New DataDispatcher: Call dd.Initialize(host, ws)
+    
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
     
     Call dd.CleanCurrentTradesSheet(False, False)
     
@@ -675,7 +651,7 @@ Public Sub PricingBulletPayment()
 
     For i = 2 To rc
     
-        If (DateDiff("d", refValuationDate, ws.Cells(i, 4).Value2) > 0) Then
+        If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 4).Value2) > 0) Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingBulletPayment", "The trade " & CStr(i - 1) & " must have a trade date less than or equal to the valuation date.")
         End If
         
@@ -693,8 +669,8 @@ Public Sub PricingBulletPayment()
         
         Dim ccy As Variant: Set ccy = host.InvokeMethod(amount, "getCurrency")
  
-        Dim calendar As Variant: Set calendar = host.InvokeMethod(dd.ReferenceCalendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.ReferenceBusinessDays, calendar)
+        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
         Set maturityDate = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.AdjustableDate", "of", maturityDate, bda)
  
@@ -751,7 +727,7 @@ Public Sub PricingBulletPayment()
             Dim pPaymentDate As Variant: Set pPaymentDate = host.InvokeMethod(pPayment, "getDate")
 
             With wsCashFlows.Cells(3, cashFlowsOffset)
-                .Value2 = host.InvokeMethod(pPaymentDate, "format", dd.ReferenceDateFormatter)
+                .Value2 = host.InvokeMethod(pPaymentDate, "format", dd.DateFormatter)
                 .NumberFormat = "dd/mm/yyyy"
                 .Borders.Color = 0
                 .Borders.LineStyle = xlContinuous
@@ -810,23 +786,17 @@ End Sub
 
 Public Sub PricingTermDeposit()
 
-    Dim form As New ReferenceData: form.Show
-    Dim refValuationDate As Date: refValuationDate = form.ReferenceValuationDate
-    Dim refBDC As String: refBDC = form.ReferenceBusinessDays
-    Dim refCcy As String: refCcy = form.ReferenceCurrency
-    Call Unload(form)
-    
     On Error GoTo ErrorHandler
-    
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
 
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("Term Deposit")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
     
     Dim host As New RuntimeHost: Call host.Initialize
-    Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
+    Dim dd As New DataDispatcher: Call dd.Initialize(host, ws)
+    
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
     
     Call dd.CleanCurrentTradesSheet(False, False)
     
@@ -839,7 +809,7 @@ Public Sub PricingTermDeposit()
 
     For i = 2 To rc
     
-        If (DateDiff("d", refValuationDate, ws.Cells(i, 5).Value2) > 0) Then
+        If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 5).Value2) > 0) Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingTermDeposit", "The trade " & CStr(i - 1) & " must have a trade date less than or equal to the valuation date.")
         End If
 
@@ -854,9 +824,9 @@ Public Sub PricingTermDeposit()
         Dim dcc As Variant: Set dcc = dd.GetDaysCountConvention("G" & iText)
         Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("H" & iText)
  
-        Dim calendar As Variant: Set calendar = host.InvokeMethod(dd.ReferenceCalendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.ReferenceBusinessDays, calendar)
-        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, calendar, bda)
+        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
+        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, Calendar, bda)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
  
         Dim conventionBuilder As Variant: Set conventionBuilder = host.InvokeMethodStaticFromName("com.opengamma.strata.product.deposit.type.ImmutableTermDepositConvention", "builder")
@@ -918,10 +888,10 @@ Public Sub PricingTermDeposit()
             Dim cfAmountEnd As Double: cfAmountEnd = host.InvokeMethod(product, "getNotional") + host.InvokeMethod(product, "getInterest")
 
             Dim cfValues() As Variant: ReDim cfValues(1, 2)
-            cfValues(0, 0) = host.InvokeMethod(pStartDate, "format", dd.ReferenceDateFormatter)
+            cfValues(0, 0) = host.InvokeMethod(pStartDate, "format", dd.DateFormatter)
             cfValues(0, 1) = CStr(ccy)
             cfValues(0, 2) = cfAmountStart
-            cfValues(1, 0) = host.InvokeMethod(pEndDate, "format", dd.ReferenceDateFormatter)
+            cfValues(1, 0) = host.InvokeMethod(pEndDate, "format", dd.DateFormatter)
             cfValues(1, 1) = CStr(ccy)
             cfValues(1, 2) = cfAmountEnd
 
@@ -988,24 +958,18 @@ ErrorHandler:
 End Sub
 
 Public Sub PricingCrossCurrencySwap()
-
-    Dim form As New ReferenceData: form.Show
-    Dim refValuationDate As Date: refValuationDate = form.ReferenceValuationDate
-    Dim refBDC As String: refBDC = form.ReferenceBusinessDays
-    Dim refCcy As String: refCcy = form.ReferenceCurrency
-    Call Unload(form)
     
     On Error GoTo ErrorHandler
-    
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
 
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("Cross-Currency Swap")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
 
     Dim host As New RuntimeHost: Call host.Initialize
-    Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
+    Dim dd As New DataDispatcher: Call dd.Initialize(host, ws)
+    
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
 
     Call dd.CleanCurrentTradesSheet(True, True)
 
@@ -1019,7 +983,7 @@ Public Sub PricingCrossCurrencySwap()
 
     For i = 3 To rc Step 2
 
-        If (DateDiff("d", refValuationDate, ws.Cells(i, 1).Value2) > 0) Then
+        If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 1).Value2) > 0) Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingCrossCurrencySwap", "The trade " & CStr(id) & " must have a trade date less than or equal to the valuation date.")
         End If
         
@@ -1060,9 +1024,9 @@ Public Sub PricingCrossCurrencySwap()
         Dim tenor As Variant: Set tenor = dd.GetTenor("C" & iText)
         Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("D" & iText)
 
-        Dim calendar As Variant: Set calendar = host.InvokeMethod(dd.ReferenceCalendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.ReferenceBusinessDays, calendar)
-        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, calendar, bda)
+        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
+        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, Calendar, bda)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim direction As Variant
@@ -1195,7 +1159,7 @@ Public Sub PricingCrossCurrencySwap()
                 Dim cashFlowPaymentDate As Variant: Set cashFlowPaymentDate = host.InvokeMethod(cashFlow, "getPaymentDate")
 
                 With wsCashFlows.Cells(j + 3, cashFlowsOffset)
-                    .Value2 = host.InvokeMethod(cashFlowPaymentDate, "format", dd.ReferenceDateFormatter)
+                    .Value2 = host.InvokeMethod(cashFlowPaymentDate, "format", dd.DateFormatter)
                     .NumberFormat = "dd/mm/yyyy"
                     .Borders.Color = 0
                     .Borders.LineStyle = xlContinuous
@@ -1256,24 +1220,18 @@ ErrorHandler:
 End Sub
 
 Public Sub PricingFra()
-
-    Dim form As New ReferenceData: form.Show
-    Dim refValuationDate As Date: refValuationDate = form.ReferenceValuationDate
-    Dim refBDC As String: refBDC = form.ReferenceBusinessDays
-    Dim refCcy As String: refCcy = form.ReferenceCurrency
-    Call Unload(form)
     
     On Error GoTo ErrorHandler
-    
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
 
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("Forward Rate Agreement")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
 
     Dim host As New RuntimeHost: Call host.Initialize
-    Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
+    Dim dd As New DataDispatcher: Call dd.Initialize(host, ws)
+    
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
 
     Call dd.CleanCurrentTradesSheet(False, False)
 
@@ -1286,7 +1244,7 @@ Public Sub PricingFra()
 
     For i = 2 To rc
 
-        If (DateDiff("d", refValuationDate, ws.Cells(i, 5).Value2) > 0) Then
+        If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 5).Value2) > 0) Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingFra", "The trade " & CStr(i - 1) & " must have a trade date less than or equal to the valuation date.")
         End If
 
@@ -1300,8 +1258,8 @@ Public Sub PricingFra()
         Dim startPeriod As Variant: Set startPeriod = dd.GetPeriod("F" & iText, "M")
         Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("G" & iText)
         
-        Dim calendar As Variant: Set calendar = host.InvokeMethod(dd.ReferenceCalendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.ReferenceBusinessDays, calendar)
+        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim template As Variant: Set template = host.InvokeMethodStaticFromName("com.opengamma.strata.product.fra.type.FraTemplate", "of", startPeriod, index)
@@ -1359,7 +1317,7 @@ Public Sub PricingFra()
             Dim pPaymentDate As Variant: Set pPaymentDate = host.InvokeMethod(product, "getPaymentDate")
 
             With wsCashFlows.Cells(3, cashFlowsOffset)
-                .Value2 = host.InvokeMethod(pPaymentDate, "format", dd.ReferenceDateFormatter)
+                .Value2 = host.InvokeMethod(pPaymentDate, "format", dd.DateFormatter)
                 .NumberFormat = "dd/mm/yyyy"
                 .Borders.Color = 0
                 .Borders.LineStyle = xlContinuous
@@ -1418,36 +1376,30 @@ End Sub
 
 Public Sub PricingInterestRateFuture()
 
-    Dim form As New ReferenceData: form.Show
-    Dim refValuationDate As Date: refValuationDate = form.ReferenceValuationDate
-    Dim refBDC As String: refBDC = form.ReferenceBusinessDays
-    Dim refCcy As String: refCcy = form.ReferenceCurrency
-    Call Unload(form)
-    
     On Error GoTo ErrorHandler
-    
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
 
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("Interest Rate Future")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
     
     Dim host As New RuntimeHost: Call host.Initialize
-    Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
+    Dim dd As New DataDispatcher: Call dd.Initialize(host, ws)
+    
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
     
     Call dd.CleanCurrentTradesSheet(False, False)
     
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
     
-    Dim valuationDate As Variant: Set valuationDate = host.InvokeMethod(dd.RatesProvider, "getValuationDate")
+    Dim ValuationDate As Variant: Set ValuationDate = host.InvokeMethod(dd.RatesProvider, "getValuationDate")
 
     Dim i As Long
 
     For i = 2 To rc
 
-        If (DateDiff("d", refValuationDate, ws.Cells(i, 8).Value2) > 0) Then
+        If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 8).Value2) > 0) Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingInterestRateFuture", "The trade " & CStr(i - 1) & " must have a trade date less than or equal to the valuation date.")
         End If
         
@@ -1479,8 +1431,8 @@ Public Sub PricingInterestRateFuture()
             quantity = -quantity
         End If
         
-        Dim calendar As Variant: Set calendar = host.InvokeMethod(dd.ReferenceCalendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.ReferenceBusinessDays, calendar)
+        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim ccy As Variant
@@ -1520,7 +1472,7 @@ Public Sub PricingInterestRateFuture()
             Dim endDateO As Variant: Set endDateO = host.InvokeMethod(dateSequence, "dateMatching", maturity)
             Set endDateO = host.InvokeMethod(bda, "adjust", endDateO, dd.ReferenceData)
             
-            Dim daO As Variant: Set daO = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, calendar, bda)
+            Dim daO As Variant: Set daO = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, Calendar, bda)
             Dim lastTradeDateO As Variant: Set lastTradeDateO = endDateO
             Set lastTradeDateO = host.InvokeMethod(daO, "adjust", lastTradeDateO, dd.ReferenceData)
 
@@ -1565,7 +1517,7 @@ Public Sub PricingInterestRateFuture()
             Set endDate = host.InvokeMethod(rateO, "getEndDate")
         End If
         
-        Dim reachedMaturity As Variant: reachedMaturity = host.InvokeMethod(endDate, "isBefore", valuationDate)
+        Dim reachedMaturity As Variant: reachedMaturity = host.InvokeMethod(endDate, "isBefore", ValuationDate)
         
         Dim pvValue As Double, pv01Value As Double
 
@@ -1607,7 +1559,7 @@ Public Sub PricingInterestRateFuture()
         If Not reachedMaturity Then
 
             With wsCashFlows.Cells(3, cashFlowsOffset)
-                .Value2 = host.InvokeMethod(endDate, "format", dd.ReferenceDateFormatter)
+                .Value2 = host.InvokeMethod(endDate, "format", dd.DateFormatter)
                 .NumberFormat = "dd/mm/yyyy"
                 .Borders.Color = 0
                 .Borders.LineStyle = xlContinuous
@@ -1666,23 +1618,17 @@ End Sub
 
 Public Sub PricingInterestRateSwap()
 
-    Dim form As New ReferenceData: form.Show
-    Dim refValuationDate As Date: refValuationDate = form.ReferenceValuationDate
-    Dim refBDC As String: refBDC = form.ReferenceBusinessDays
-    Dim refCcy As String: refCcy = form.ReferenceCurrency
-    Call Unload(form)
-    
     On Error GoTo ErrorHandler
-    
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
 
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets("Interest Rate Swap")
     Dim cc As Long: cc = ws.UsedRange.Columns.Count
     Dim rc As Long: rc = ws.UsedRange.Rows.Count
 
     Dim host As New RuntimeHost: Call host.Initialize
-    Dim dd As New DataDispatcher: Call dd.Initialize(host, refValuationDate, refBDC, refCcy, ws)
+    Dim dd As New DataDispatcher: Call dd.Initialize(host, ws)
+    
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
 
     Call dd.CleanCurrentTradesSheet(True, False)
 
@@ -1690,13 +1636,13 @@ Public Sub PricingInterestRateSwap()
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.swap.SwapTradeCalculations", "DEFAULT")
-    Dim valuationDate As Variant: Set valuationDate = host.InvokeMethod(dd.RatesProvider, "getValuationDate")
+    Dim ValuationDate As Variant: Set ValuationDate = host.InvokeMethod(dd.RatesProvider, "getValuationDate")
 
     Dim i As Long, j As Long
 
     For i = 3 To rc
 
-        If (DateDiff("d", refValuationDate, ws.Cells(i, 2).Value2) > 0) Then
+        If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 2).Value2) > 0) Then
             Call Err.Raise(vbObjectError + 1, "Pricing.PricingInterestRateSwap", "The trade " & CStr(i - 2) & " must have a trade date less than or equal to the valuation date.")
         End If
         
@@ -1734,9 +1680,9 @@ Public Sub PricingInterestRateSwap()
         Dim tenor As Variant: Set tenor = dd.GetTenor("D" & iText)
         Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("E" & iText)
 
-        Dim calendar As Variant: Set calendar = host.InvokeMethod(dd.ReferenceCalendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.ReferenceBusinessDays, calendar)
-        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, calendar, bda)
+        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
+        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, Calendar, bda)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim ccy As Variant
@@ -2037,7 +1983,7 @@ Public Sub PricingInterestRateSwap()
                 Dim cashFlowPaymentDate As Variant: Set cashFlowPaymentDate = host.InvokeMethod(cashFlow, "getPaymentDate")
 
                 With wsCashFlows.Cells(j + 3, cashFlowsOffset)
-                    .Value2 = host.InvokeMethod(cashFlowPaymentDate, "format", dd.ReferenceDateFormatter)
+                    .Value2 = host.InvokeMethod(cashFlowPaymentDate, "format", dd.DateFormatter)
                     .NumberFormat = "dd/mm/yyyy"
                     .Borders.Color = 0
                     .Borders.LineStyle = xlContinuous

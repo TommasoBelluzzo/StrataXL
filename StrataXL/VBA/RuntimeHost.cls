@@ -211,10 +211,8 @@ Private Function CreateManagedHelper(ByVal domain As mscorlib.AppDomain) As Obje
         "            builder.AppendLine(String.Concat(""########## EXCEPTION THROWN AT "", DateTime.Now.ToString(""dd/MM/yyyy HH:mm""), "" ##########"", Environment.NewLine));" + vbCrLf + _
         "            builder.AppendLine(String.Concat(""[TYPE] "", e.GetType().ToString(), Environment.NewLine, ""[MESSAGE] "", e.Message, Environment.NewLine, ""[STACK TRACE]"", Environment.NewLine, e.StackTrace, Environment.NewLine));" + vbCrLf + _
         "" + vbCrLf + _
-        "            Exception ie = null;" + vbCrLf + _
-        "" + vbCrLf + _
-        "            while ((ie = e.InnerException) != null)" + vbCrLf + _
-        "                builder.AppendLine(String.Concat(Environment.NewLine, ""[TYPE] "", ie.GetType().ToString(), "" (Inner)"", Environment.NewLine, ""[MESSAGE] "", ie.Message, Environment.NewLine, ""[STACK TRACE]"", Environment.NewLine, ie.StackTrace, Environment.NewLine));" + vbCrLf + _
+        "            while ((e = e.InnerException) != null)" + vbCrLf + _
+        "                builder.AppendLine(String.Concat(""[TYPE] "", e.GetType().ToString(), "" (Inner)"", Environment.NewLine, ""[MESSAGE] "", e.Message, Environment.NewLine, ""[STACK TRACE]"", Environment.NewLine, e.StackTrace, Environment.NewLine));" + vbCrLf + _
         "" + vbCrLf + _
         "            builder.AppendLine();" + vbCrLf + _
         "            builder.AppendLine();" + vbCrLf + _
