@@ -338,6 +338,10 @@ Private Sub ParseWorksheetExchange(ByVal ws As Worksheet, ByVal ratesProviderBui
             Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetExchange", "The sheet ""Setup-Exchange"" contains invalid data in the cell [" & CStr(i) & ", 2].")
         End If
         
+        If (ccy1 = ccy2) Then
+            Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetExchange", "The sheet ""Setup-Exchange"" contains currency pairs defined on the same currency.")
+        End If
+        
         Dim rate As Variant: rate = ws.Cells(i, 3).Value2
         
         If IsEmpty(rate) Or Not IsNumeric(rate) Then
@@ -1459,7 +1463,7 @@ Public Function PrepareCashFlowsSheet(ByVal ws As Worksheet) As Worksheet
 
     End If
 
-    Set wsCashFlows = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+    Set wsCashFlows = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
     
     With wsCashFlows.Cells
         .Font.Name = "Calibri"

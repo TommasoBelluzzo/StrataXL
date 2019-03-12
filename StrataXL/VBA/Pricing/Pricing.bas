@@ -62,16 +62,16 @@ Public Sub PricingFxNonDeliverable()
         Dim ccyPair As Variant: Set ccyPair = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.CurrencyPair", "of", ccySettlement, ccyNonDeliverable)
         Dim ccyPairName As String: ccyPairName = Replace$(UCase$(host.InvokeMethod(ccyPair, "toString")), "/", "-")
 
-        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
+        Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
         Set maturityDate = host.InvokeMethod(bda, "adjust", maturityDate, dd.ReferenceData)
 
         Dim calendarSettlement As Variant: Set calendarSettlement = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccySettlement)
         Dim calendarNonDeliverable As Variant: Set calendarNonDeliverable = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccyNonDeliverable)
         Dim calendarIndex As Variant: Set calendarIndex = host.InvokeMethod(calendarSettlement, "combinedWith", calendarNonDeliverable)
-        Dim adjustmentFixing As Variant: Set adjustmentFixing = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, Calendar)
-        Dim adjustmentMaturity As Variant: Set adjustmentMaturity = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, Calendar)
+        Dim adjustmentFixing As Variant: Set adjustmentFixing = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, tradeCalendar)
+        Dim adjustmentMaturity As Variant: Set adjustmentMaturity = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, tradeCalendar)
 
         Dim indexBuilder As Variant: Set indexBuilder = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.index.ImmutableFxIndex", "builder")
         Call host.InvokeMethod(indexBuilder, "currencyPair", ccyPair)
@@ -261,8 +261,8 @@ Public Sub PricingFxSingle()
         Dim ccyBase As Variant: Set ccyBase = host.InvokeMethod(amountBase, "getCurrency")
         Dim ccyCounter As Variant: Set ccyCounter = host.InvokeMethod(amountCounter, "getCurrency")
 
-        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
+        Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
         Set maturityDate = host.InvokeMethod(bda, "adjust", maturityDate, dd.ReferenceData)
 
@@ -464,8 +464,8 @@ Public Sub PricingFxSwap()
 
         Dim ccyBase As Variant: Set ccyBase = host.InvokeMethod(amountBase, "getCurrency")
 
-        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
+        Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
         Set paymentDateNear = host.InvokeMethod(bda, "adjust", paymentDateNear, dd.ReferenceData)
         Set paymentDateFar = host.InvokeMethod(bda, "adjust", paymentDateFar, dd.ReferenceData)
@@ -669,8 +669,8 @@ Public Sub PricingBulletPayment()
         
         Dim ccy As Variant: Set ccy = host.InvokeMethod(amount, "getCurrency")
  
-        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
+        Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
         Set maturityDate = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.AdjustableDate", "of", maturityDate, bda)
  
@@ -824,9 +824,9 @@ Public Sub PricingTermDeposit()
         Dim dcc As Variant: Set dcc = dd.GetDaysCountConvention("G" & iText)
         Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("H" & iText)
  
-        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
-        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, Calendar, bda)
+        Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
+        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, tradeCalendar, bda)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
  
         Dim conventionBuilder As Variant: Set conventionBuilder = host.InvokeMethodStaticFromName("com.opengamma.strata.product.deposit.type.ImmutableTermDepositConvention", "builder")
@@ -1024,9 +1024,9 @@ Public Sub PricingCrossCurrencySwap()
         Dim tenor As Variant: Set tenor = dd.GetTenor("C" & iText)
         Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("D" & iText)
 
-        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
-        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, Calendar, bda)
+        Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
+        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, tradeCalendar, bda)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim direction As Variant
@@ -1258,8 +1258,8 @@ Public Sub PricingFra()
         Dim startPeriod As Variant: Set startPeriod = dd.GetPeriod("F" & iText, "M")
         Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("G" & iText)
         
-        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
+        Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim template As Variant: Set template = host.InvokeMethodStaticFromName("com.opengamma.strata.product.fra.type.FraTemplate", "of", startPeriod, index)
@@ -1393,7 +1393,8 @@ Public Sub PricingInterestRateFuture()
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
     
-    Dim ValuationDate As Variant: Set ValuationDate = host.InvokeMethod(dd.RatesProvider, "getValuationDate")
+    Dim dateSequence As Variant: Set dateSequence = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DateSequence", "of", "MONTHLY-IMM")
+    Dim vd As Variant: Set vd = host.InvokeMethod(dd.RatesProvider, "getValuationDate")
 
     Dim i As Long
 
@@ -1424,15 +1425,14 @@ Public Sub PricingInterestRateFuture()
         Dim lastPrice As Double: lastPrice = dd.GetPrice("I" & iText)
         Dim tradeDate As Variant: Set tradeDate = dd.GetDate("J" & iText)
         Dim maturity As Variant: Set maturity = dd.GetFutureMaturity("K" & iText)
-        Dim dateSequence As Variant: Set dateSequence = dd.GetDateSequence("L" & iText)
-        Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("M" & iText)
+        Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("L" & iText)
 
         If (direction = "SELL") Then
             quantity = -quantity
         End If
         
-        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
+        Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim ccy As Variant
@@ -1472,7 +1472,7 @@ Public Sub PricingInterestRateFuture()
             Dim endDateO As Variant: Set endDateO = host.InvokeMethod(dateSequence, "dateMatching", maturity)
             Set endDateO = host.InvokeMethod(bda, "adjust", endDateO, dd.ReferenceData)
             
-            Dim daO As Variant: Set daO = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, Calendar, bda)
+            Dim daO As Variant: Set daO = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, tradeCalendar, bda)
             Dim lastTradeDateO As Variant: Set lastTradeDateO = endDateO
             Set lastTradeDateO = host.InvokeMethod(daO, "adjust", lastTradeDateO, dd.ReferenceData)
 
@@ -1517,7 +1517,7 @@ Public Sub PricingInterestRateFuture()
             Set endDate = host.InvokeMethod(rateO, "getEndDate")
         End If
         
-        Dim reachedMaturity As Variant: reachedMaturity = host.InvokeMethod(endDate, "isBefore", ValuationDate)
+        Dim reachedMaturity As Variant: reachedMaturity = host.InvokeMethod(endDate, "isBefore", vd)
         
         Dim pvValue As Double, pv01Value As Double
 
@@ -1636,7 +1636,6 @@ Public Sub PricingInterestRateSwap()
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.swap.SwapTradeCalculations", "DEFAULT")
-    Dim ValuationDate As Variant: Set ValuationDate = host.InvokeMethod(dd.RatesProvider, "getValuationDate")
 
     Dim i As Long, j As Long
 
@@ -1680,9 +1679,9 @@ Public Sub PricingInterestRateSwap()
         Dim tenor As Variant: Set tenor = dd.GetTenor("D" & iText)
         Dim calendarCpty As Variant: Set calendarCpty = dd.GetCalendar("E" & iText)
 
-        Dim Calendar As Variant: Set Calendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
-        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, Calendar)
-        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, Calendar, bda)
+        Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
+        Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
+        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, tradeCalendar, bda)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim ccy As Variant

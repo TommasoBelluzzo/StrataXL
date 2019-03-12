@@ -1,14 +1,14 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ReferenceData 
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ReferenceDataSingleCurrency 
    Caption         =   "Reference Data"
-   ClientHeight    =   2295
+   ClientHeight    =   2775
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3975
-   OleObjectBlob   =   "ReferenceData.frx":0000
+   OleObjectBlob   =   "ReferenceDataSingleCurrency.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
-Attribute VB_Name = "ReferenceData"
+Attribute VB_Name = "ReferenceDataSingleCurrency"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
@@ -21,6 +21,7 @@ Attribute VB_Exposed = False
 
 ' SETTINGS
 
+Option Base 0
 Option Explicit
 
 ' IMPORTS
@@ -70,6 +71,7 @@ Const WS_SYSMENU As Long = &H80000
 
 Dim m_ReferenceBusinessDays As String
 Dim m_ReferenceCurrency As String
+Dim m_ReferenceDaysCount As String
 Dim m_ReferenceValuationDate As Date
 
 ' PROPERTY
@@ -87,6 +89,15 @@ End Property
 Property Get ReferenceCurrency() As String
 
     ReferenceCurrency = m_ReferenceCurrency
+
+End Property
+
+' PROPERTY
+' Gets the reference days count convention.
+
+Property Get ReferenceDaysCount() As String
+
+    ReferenceDaysCount = m_ReferenceDaysCount
 
 End Property
 
@@ -117,12 +128,52 @@ Private Sub UserForm_Initialize()
     FieldValuationDate.Text = "15/02/2019"
     
     With FieldCurrency
+        .AddItem "AED"
+        .AddItem "ARS"
+        .AddItem "AUD"
+        .AddItem "BGN"
+        .AddItem "BHD"
+        .AddItem "BRL"
+        .AddItem "CAD"
         .AddItem "CHF"
+        .AddItem "CLP"
+        .AddItem "CNY"
+        .AddItem "CNY"
+        .AddItem "COP"
+        .AddItem "CZK"
+        .AddItem "DKK"
+        .AddItem "EGP"
         .AddItem "EUR"
         .AddItem "GBP"
+        .AddItem "HKD"
+        .AddItem "HRK"
+        .AddItem "HUF"
+        .AddItem "IDR"
+        .AddItem "ILS"
+        .AddItem "INR"
+        .AddItem "ISK"
         .AddItem "JPY"
+        .AddItem "KRW"
+        .AddItem "MXN"
+        .AddItem "MYR"
+        .AddItem "NOK"
+        .AddItem "NZD"
+        .AddItem "PEN"
+        .AddItem "PHP"
+        .AddItem "PKR"
+        .AddItem "PLN"
+        .AddItem "RON"
+        .AddItem "RUB"
+        .AddItem "SAR"
+        .AddItem "SEK"
+        .AddItem "SGD"
+        .AddItem "THB"
+        .AddItem "TRY"
+        .AddItem "TWD"
+        .AddItem "UAH"
         .AddItem "USD"
-        .ListIndex = 1
+        .AddItem "ZAR"
+        .ListIndex = 43
     End With
     
     With FieldBusinessDays
@@ -133,6 +184,30 @@ Private Sub UserForm_Initialize()
         .AddItem "PRECEDING"
         .AddItem "MODIFIED PRECEDING"
         .ListIndex = 3
+    End With
+    
+    With FieldDaysCount
+        .AddItem "30/360 ISDA"
+        .AddItem "30/360 PSA"
+        .AddItem "30E/360"
+        .AddItem "30E/360 ISDA"
+        .AddItem "30E+/360"
+        .AddItem "30U/360"
+        .AddItem "30U/360 EOM"
+        .AddItem "ACT/360"
+        .AddItem "ACT/364"
+        .AddItem "ACT/365.25"
+        .AddItem "ACT/365A"
+        .AddItem "ACT/365F"
+        .AddItem "ACT/365L"
+        .AddItem "ACT/ACT AFB"
+        .AddItem "ACT/ACT ICMA"
+        .AddItem "ACT/ACT ISDA"
+        .AddItem "ACT/ACT AFB"
+        .AddItem "ACT/ACT ICMA"
+        .AddItem "ACT/ACT YEAR"
+        .AddItem "NL/365"
+        .ListIndex = 7
     End With
 
 End Sub
@@ -158,6 +233,7 @@ Private Sub ButtonOk_Click()
     
     m_ReferenceBusinessDays = FieldBusinessDays.Text
     m_ReferenceCurrency = FieldCurrency.Text
+    m_ReferenceDaysCount = FieldDaysCount.Text
     m_ReferenceValuationDate = CDate(vd)
 
     Me.Hide
