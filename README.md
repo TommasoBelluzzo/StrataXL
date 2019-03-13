@@ -22,7 +22,7 @@ StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.i
     * deploys the latest release of IKVM into the `\StrataXL\Libraries\` folder;
     * downloads the latest release of OpenGamma Strata;
     * converts the JAR files of the package into .NET libraies and places the output into the `\StrataXL\Libraries\` folder.
- 1. The above step can be performed alone when an upgrade of OpenGamma Strata is required.
+ 1. The step above can be performed alone when an upgrade of OpenGamma Strata is required.
 
 ## Usage
 
