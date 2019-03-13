@@ -16,8 +16,8 @@ StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.i
 
 ## Installation & Upgrade
 
- 1. Open the RuntimeLoader solution in Visual Studio and build the required projects, depending on the bitness of the local Windows and Excel versions. This process compiles the RuntimeLoader libraries and places them into the `\StrataXL\Libraries\` folder. The libraries are used by the VBA class called `RuntimeHost` for creating instances of the .NET CLR.
- 1. Sometimes, the native function `SetDefaultDllDirectories`, used by the `RuntimeHost` class, doesn't work properly. This is likely caused by the presence of an antivirus blocking certain operating system calls or protecting the file system. This problem can be bypassed by registering the RuntimeLoader libraries with the `regsvr32` command-line utility.
+ 1. Open the RuntimeLoader solution in Visual Studio and build the required projects, depending on the bitness of the local Windows and Excel versions. This process compiles the RuntimeLoader libraries and places them into the `\StrataXL\Libraries\` folder. The libraries are used by the `RuntimeHost` VBA class for creating instances of the .NET CLR.
+ 1. Sometimes, the native function `SetDefaultDllDirectories`, used by the `RuntimeHost` VBA class, doesn't work properly. This is likely caused by the presence of an antivirus blocking certain operating system calls or protecting the file system. This problem can be bypassed by registering the RuntimeLoader libraries with the `regsvr32` command-line utility.
  1. Open the StrataWrapper solution in Visual Studio and build the project. This will produce a console application called `StrataWrapper.exe` and place it into the `\StrataXL\` folder. The executable, when run:
     * deploys the latest release of IKVM into the `\StrataXL\Libraries\` folder;
     * downloads the latest release of OpenGamma Strata;
