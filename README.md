@@ -14,3 +14,6 @@ StrataXL is an `Excel` integration of [OpenGamma Strata](http://strata.opengamma
  - Any version of Excel supporting VBA 7.0 or greater is necessary; the minimum required version is Excel 2010.
  - The auxiliary projects have been developed under Visual Studio 2017.
 
+## Installation & Upgrade
+
+
