@@ -18,7 +18,7 @@ StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.i
 
  1. Open the RuntimeLoader solution in Visual Studio and build the required projects, depending on the bitness of the local Windows and Excel versions. This process compiles the RuntimeLoader libraries and places them into the `\StrataXL\Libraries\` folder. The libraries are used by the VBA class called `RuntimeHost` for creating instances of the .NET CLR.
  1. Sometimes, the native function `SetDefaultDllDirectories`, used by the `RuntimeHost` class, doesn't work properly. This is likely caused by the presence of an antivirus blocking certain operating system calls or protecting the file system. This problem can be bypassed by registering the RuntimeLoader libraries with the regsvr32 utility.
- 1. Open the StrataWrapper solution in Visual Studio and build the project. This will produce a console application called StrataWrapper.exe and place it into the `\StrataXL\` folder. The executable, when run:
+ 1. Open the StrataWrapper solution in Visual Studio and build the project. This will produce a console application called `StrataWrapper.exe` and place it into the `\StrataXL\` folder. The executable, when run:
     * deploys the latest release of IKVM into the `\StrataXL\Libraries\` folder;
     * downloads the latest release of OpenGamma Strata;
     * converts the JAR files of the package into .NET libraies and places the output into the `\StrataXL\Libraries\` folder.
@@ -41,3 +41,5 @@ StrataXL includes two scripted Excel spreadsheets:
    * Term Deposits
 
 The spreadsheet `StrataXL-Template.xlsm` is a good starting point for creating brand new StrataXL scripts from scratch.
+
+Debugging exceptions thrown by the underlying .NET CLR can sometimes be tricky. That's why they are logged into a file called `StrataXL.log` located into the `\StrataXL\` folder. Exception messages and stack traces written into the LOG file can provide useful insights about the errors occurred during the execution of the VBA scripts.
