@@ -31,7 +31,7 @@ The spreadsheet `StrataXL-Template.xlsm` is a good starting point for creating b
  * `StrataXL-Calibration.xlsm`, a tool for calibrating interest rate curves within a multi-curve framework:
    * Cross-Currency Curves
    * Single-Currency Curves
- * `StrataXL-Pricing.xlsm`, a tool for pricing the following asset classes:
+ * `StrataXL-Pricing.xlsm`, a tool for pricing various built-in asset classes and analyzing their cash flows:
    * Bullet Payments
    * Cross-Currency Swaps
    * Forex Products (Spots, Forwards and Swaps)
