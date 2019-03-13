@@ -28,9 +28,9 @@ StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.i
 
 StrataXL includes two scripted Excel spreadsheets:
 
- * `StrataXL-Calibration.xlsm`, a tool for calibrating the following interest rate curves within a multi-curve framework:
-   * Single-Currency Curves
+ * `StrataXL-Calibration.xlsm`, a tool for calibrating interest rate curves within a multi-curve framework:
    * Cross-Currency Curves
+   * Single-Currency Curves
  * `StrataXL-Pricing.xlsm`, a tool for pricing the following asset classes:
    * Bullet Payments
    * Cross-Currency Swaps
@@ -40,4 +40,4 @@ StrataXL includes two scripted Excel spreadsheets:
    * Interest Rate Swaps
    * Term Deposits
 
-The spreadsheet `StrataXL-Template.xlsm` can be used as a starting point for creating brand new StrataXL scripts from scratch
+The spreadsheet `StrataXL-Template.xlsm` can be used as a starting point for creating brand new StrataXL scripts from scratch.
