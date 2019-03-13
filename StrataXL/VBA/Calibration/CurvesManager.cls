@@ -528,6 +528,10 @@ Private Sub ParseCurveForward(ByVal isLocal As Boolean, ByVal curveId As Long, B
             Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " contains an invalid node spread in the cell " & m_Worksheet.Cells(j, i + 3).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
         
+        If (nodeInstrument = "XCS") And (nodeSpread = 0) Then
+            Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " must define additional spreads on cross-currency swap nodes.")
+        End If
+        
         If (j = 8) And ((nodeTenor <> curveIndexTenorString) Or (nodeInstrument <> "FIX")) Then
             Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " must define the first node as a rate fixing whose tenor is equal to the tenor of its index.")
         End If

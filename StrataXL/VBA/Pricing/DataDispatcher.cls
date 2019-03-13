@@ -1418,13 +1418,21 @@ Public Sub Initialize(ByVal host As RuntimeHost, ByVal ws As Worksheet)
     Call ParseWorksheetCurves(wsCurves, ratesProviderBuilder)
     Call ParseWorksheetExchange(wsExchange, ratesProviderBuilder)
     Set m_RatesProvider = m_Host.InvokeMethod(ratesProviderBuilder, "build")
+    
+    Dim cbase As Variant:  Set cbase = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", "USD")
+    Dim ccou As Variant:  Set ccou = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", "EUR")
+    Dim cp As Variant: Set cp = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.CurrencyPair", "of", cbase, ccou)
+    Dim fxfr As Variant: Set fxfr = m_Host.InvokeMethod(m_RatesProvider, "fxForwardRates", cp)
+    Dim p9m As Variant: Set p9m = m_Host.InvokeMethodStaticFromName("java.time.Period", "ofMonths", 9)
+    Dim vd9m As Variant: Set vd9m = m_Host.InvokeMethod(vdo, "plus", p9m)
+    Dim r9m As Variant: r9m = m_Host.InvokeMethod(fxfr, "rate", cbase, vd9m)
 
     Set m_Currency = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", ccy)
     Set m_BusinessDays = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayConvention", "of", Replace$(bdc, " ", ""))
     Set m_Calendar = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", m_Currency)
     Set m_ReferenceData = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.ReferenceData", "standard")
     Set m_DateFormatter = m_Host.InvokeMethodStaticFromName("java.time.format.DateTimeFormatter", "ofPattern", "dd/MM/yyyy")
-    Set m_ValuationDate = ValuationDate
+    Set m_ValuationDate = vdo
     m_ValuationDatePlain = vd
     
     m_Initialized = True
