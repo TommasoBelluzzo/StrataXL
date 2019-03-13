@@ -40,4 +40,4 @@ StrataXL includes two scripted Excel spreadsheets:
    * Interest Rate Swaps
    * Term Deposits
 
-The spreadsheet `StrataXL-Template.xlsm` can be used as a starting point for creating brand new StrataXL scripts from scratch.
+The spreadsheet `StrataXL-Template.xlsm` is a good starting point for creating brand new StrataXL scripts from scratch.
