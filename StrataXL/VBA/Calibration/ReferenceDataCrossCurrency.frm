@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ReferenceDataCrossCurrency 
    Caption         =   "Reference Data"
-   ClientHeight    =   2775
+   ClientHeight    =   3255
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3975
@@ -70,9 +70,10 @@ Const WS_SYSMENU As Long = &H80000
 ' MEMBERS
 
 Dim m_ReferenceBusinessDays As String
-Dim m_ReferenceCurrencyBase As String
-Dim m_ReferenceCurrencyCounter As String
+Dim m_ReferenceCurrencyForeign As String
+Dim m_ReferenceCurrencyLocal As String
 Dim m_ReferenceDaysCount As String
+Dim m_ReferenceExchangeRate As Double
 Dim m_ReferenceValuationDate As Date
 
 ' PROPERTY
@@ -85,20 +86,29 @@ Property Get ReferenceBusinessDays() As String
 End Property
 
 ' PROPERTY
-' Gets the reference base currency.
+' Gets the reference foreign currency.
 
-Property Get ReferenceCurrencyBase() As String
+Property Get ReferenceCurrencyForeign() As String
 
-    ReferenceCurrencyBase = m_ReferenceCurrencyBase
+    ReferenceCurrencyForeign = m_ReferenceCurrencyForeign
 
 End Property
 
 ' PROPERTY
-' Gets the reference counter currency.
+' Gets the reference local currency.
 
-Property Get ReferenceCurrencyCounter() As String
+Property Get ReferenceCurrencyLocal() As String
 
-    ReferenceCurrencyCounter = m_ReferenceCurrencyCounter
+    ReferenceCurrencyLocal = m_ReferenceCurrencyLocal
+
+End Property
+
+' PROPERTY
+' Gets the reference exchange rate.
+
+Property Get ReferenceExchangeRate() As String
+
+    ReferenceExchangeRate = m_ReferenceExchangeRate
 
 End Property
 
@@ -137,7 +147,7 @@ Private Sub UserForm_Initialize()
 
     FieldValuationDate.Text = "15/02/2019"
     
-    With FieldCurrencyBase
+    With FieldCurrencyLocal
         .AddItem "AED"
         .AddItem "ARS"
         .AddItem "AUD"
@@ -186,7 +196,7 @@ Private Sub UserForm_Initialize()
         .ListIndex = 43
     End With
     
-    With FieldCurrencyCounter
+    With FieldCurrencyForeign
         .AddItem "AED"
         .AddItem "ARS"
         .AddItem "AUD"
@@ -235,6 +245,8 @@ Private Sub UserForm_Initialize()
         .ListIndex = 15
     End With
     
+    FieldExchangeRate.Text = "0.887415"
+    
     With FieldBusinessDays
         .AddItem "NO ADJUST"
         .AddItem "NEAREST"
@@ -277,22 +289,37 @@ End Sub
 Private Sub ButtonOk_Click()
 
     Dim vd As String: vd = FieldValuationDate.Text
-    Dim ccyBase As String: ccyBase = FieldCurrencyBase.Text
-    Dim ccyCounter As String: ccyCounter = FieldCurrencyCounter.Text
+    Dim ccyLocal As String: ccyLocal = FieldCurrencyLocal.Text
+    Dim ccyForeign As String: ccyForeign = FieldCurrencyForeign.Text
+    Dim exchangeRate As String: exchangeRate = FieldExchangeRate.Text
     
     Dim shouldExit As Boolean: shouldExit = False
     
-    If Not IsDate(vd) Then
+    If Not IsDate(vd) Or (DateDiff("d", CDate(vd), Now()) < 0) Then
         FieldValuationDate.BackColor = RGB(247, 215, 215)
         FieldValuationDate.BorderColor = RGB(255, 0, 0)
         shouldExit = True
     End If
     
-    If (ccyBase = ccyCounter) Then
-        FieldCurrencyBase.BackColor = RGB(247, 215, 215)
-        FieldCurrencyBase.BorderColor = RGB(255, 0, 0)
-        FieldCurrencyCounter.BackColor = RGB(247, 215, 215)
-        FieldCurrencyCounter.BorderColor = RGB(255, 0, 0)
+    If (ccyLocal = ccyForeign) Then
+        FieldCurrencyLocal.BackColor = RGB(247, 215, 215)
+        FieldCurrencyLocal.BorderColor = RGB(255, 0, 0)
+        FieldCurrencyForeign.BackColor = RGB(247, 215, 215)
+        FieldCurrencyForeign.BorderColor = RGB(255, 0, 0)
+        shouldExit = True
+    End If
+    
+    If (ccyLocal = ccyForeign) Then
+        FieldCurrencyLocal.BackColor = RGB(247, 215, 215)
+        FieldCurrencyLocal.BorderColor = RGB(255, 0, 0)
+        FieldCurrencyForeign.BackColor = RGB(247, 215, 215)
+        FieldCurrencyForeign.BorderColor = RGB(255, 0, 0)
+        shouldExit = True
+    End If
+    
+    If Not IsNumeric(exchangeRate) Or (CDbl(exchangeRate) <= 0) Then
+        FieldExchangeRate.BackColor = RGB(247, 215, 215)
+        FieldExchangeRate.BorderColor = RGB(255, 0, 0)
         shouldExit = True
     End If
     
@@ -302,15 +329,18 @@ Private Sub ButtonOk_Click()
     
     FieldValuationDate.BackColor = &H8000000F
     FieldValuationDate.BorderColor = &H80000012
-    FieldCurrencyBase.BackColor = &H8000000F
-    FieldCurrencyBase.BorderColor = &H80000012
-    FieldCurrencyCounter.BackColor = &H8000000F
-    FieldCurrencyCounter.BorderColor = &H80000012
+    FieldCurrencyLocal.BackColor = &H8000000F
+    FieldCurrencyLocal.BorderColor = &H80000012
+    FieldCurrencyForeign.BackColor = &H8000000F
+    FieldCurrencyForeign.BorderColor = &H80000012
+    FieldExchangeRate.BackColor = &H8000000F
+    FieldExchangeRate.BorderColor = &H80000012
     
     m_ReferenceBusinessDays = FieldBusinessDays.Text
-    m_ReferenceCurrencyBase = FieldCurrencyBase.Text
-    m_ReferenceCurrencyCounter = FieldCurrencyCounter.Text
+    m_ReferenceCurrencyForeign = FieldCurrencyForeign.Text
+    m_ReferenceCurrencyLocal = FieldCurrencyLocal.Text
     m_ReferenceDaysCount = FieldDaysCount.Text
+    m_ReferenceExchangeRate = CDbl(exchangeRate)
     m_ReferenceValuationDate = CDate(vd)
 
     Me.Hide

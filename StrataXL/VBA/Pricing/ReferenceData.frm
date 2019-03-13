@@ -21,6 +21,7 @@ Attribute VB_Exposed = False
 
 ' SETTINGS
 
+Option Base 0
 Option Explicit
 
 ' IMPORTS
@@ -144,7 +145,7 @@ Private Sub ButtonOk_Click()
 
     Dim vd As String: vd = FieldValuationDate.Text
     
-    If Not IsDate(vd) Then
+    If Not IsDate(vd) Or (DateDiff("d", CDate(vd), Now()) < 0) Then
 
         FieldValuationDate.BackColor = RGB(247, 215, 215)
         FieldValuationDate.BorderColor = RGB(255, 0, 0)

@@ -84,11 +84,22 @@ Property Get ValuationDatePlain() As Date
 End Property
 
 ' METHOD
-' Parses a discount curve.
+' Parses a discount curve related to the local currency.
 
-Private Sub ParseCurveDiscount(ByVal curveId As Long, ByVal groupRatesBuilder As Variant, ByVal marketDataBuilder As Variant, ByVal vd As Variant, ByVal ccy As Variant, ByVal dcc As Variant, ByVal calendar As Variant, ByVal bda As Variant)
+Private Sub ParseCurveDiscount(ByVal isLocal As Boolean, ByVal curveId As Long, ByVal groupRatesBuilder As Variant, ByVal marketDataBuilder As Variant, ByVal vd As Variant, ByVal ccyLocal As Variant, ByVal ccyForeign As Variant, ByVal dcc As Variant, ByVal calendar As Variant, ByVal bda As Variant)
 
     Dim i As Long: i = (curveId * 4) - 3
+    
+    Dim ccy As Variant
+    Dim ccyType As String
+    
+    If isLocal Then
+        Set ccy = ccyLocal
+        ccyType = "local"
+    Else
+        Set ccy = ccyForeign
+        ccyType = "foreign"
+    End If
 
     Dim curveIndex As Variant: curveIndex = m_Worksheet.Cells(3, i + 1).Value2
     
@@ -105,7 +116,7 @@ Private Sub ParseCurveDiscount(ByVal curveId As Long, ByVal groupRatesBuilder As
     Set curveIndex = m_Host.GetPropertyStaticFromName("com.opengamma.strata.basics.index.OvernightIndices", curveIndex)
 
     If (m_Host.InvokeMethod(curveIndex, "getCurrency") <> ccy) Then
-        Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveDiscount", "The curve " & CStr(curveId) & " is defined on an index whose currency is different from the referece one.")
+        Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveDiscount", "The curve " & CStr(curveId) & " is defined on an index whose currency is different from the " & ccyType & " one.")
     End If
 
     Dim curveInterpolation As Variant: curveInterpolation = m_Worksheet.Cells(4, i + 1).Value2
@@ -183,8 +194,12 @@ Private Sub ParseCurveDiscount(ByVal curveId As Long, ByVal groupRatesBuilder As
         
         nodeInstrument = UCase$(Trim$(nodeInstrument))
 
-        If (nodeInstrument <> "DEP") And (nodeInstrument <> "OIS") Then
+        If (nodeInstrument <> "DEP") And (nodeInstrument <> "FXS") And (nodeInstrument <> "OIS") Then
             Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveDiscount", "The curve " & CStr(curveId) & " contains an invalid node instrument in the cell " & m_Worksheet.Cells(j, i + 1).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
+        End If
+        
+        If isLocal And (nodeInstrument = "FXS") Then
+            Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveDiscount", "The curve " & CStr(curveId) & " is defined on an index whose currency is the local one, therefore it cannot associate nodes to FX swap instruments.")
         End If
         
         If Not IsNumeric(nodeQuote) Then
@@ -195,6 +210,10 @@ Private Sub ParseCurveDiscount(ByVal curveId As Long, ByVal groupRatesBuilder As
             Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveDiscount", "The curve " & CStr(curveId) & " contains an invalid node spread in the cell " & m_Worksheet.Cells(j, i + 3).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
         
+        If (nodeInstrument = "FXS") And (nodeSpread > 0) Then
+            Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveDiscount", "The curve " & CStr(curveId) & " cannot define additional spreads on FX swap nodes.")
+        End If
+
         Dim nodeName As String: nodeName = CStr(ccy) & "-DT-" & nodeTenor
         Dim nodeId As Variant: Set nodeId = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.StandardId", "of", "CALIBRATION", nodeName)
         Dim nodeQuoteId As Variant: Set nodeQuoteId = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.observable.QuoteId", "of", nodeId)
@@ -260,7 +279,7 @@ Private Sub ParseCurveDiscount(ByVal curveId As Long, ByVal groupRatesBuilder As
             End If
             
             If (nodeDays > CDbl(21600)) Then
-                Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveDiscount", "The curve " & CStr(curveId) & " must cannot define tenors greater than 60 years.")
+                Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveDiscount", "The curve " & CStr(curveId) & " cannot define tenors greater than 60 years.")
             End If
 
             If (j > 8) And (nodeDays <= curveNodesDays(j - 9)) Then
@@ -269,36 +288,49 @@ Private Sub ParseCurveDiscount(ByVal curveId As Long, ByVal groupRatesBuilder As
 
             curveNodesDays(j - 8) = nodeDays
             
-            Set nodeTenor = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.Tenor", "of", nodePeriod)
+            If (nodeInstrument = "FXS") Then
 
-            Dim daOIS As Variant: Set daOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, calendar, bda)
-            Dim frequencyOIS As Variant: Set frequencyOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.schedule.Frequency", "ofYears", 1)
-            Dim periodOIS As Variant: Set periodOIS = m_Host.GetFieldStaticByName("java.time.Period", "ZERO")
+                Dim daFXS As Variant: Set daFXS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, calendar, bda)
+                Dim ccyPairFXS As Variant: Set ccyPairFXS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.CurrencyPair", "of", ccyLocal, ccyForeign)
+                
+                Dim conventionFXS As Variant: Set conventionFXS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.fx.type.ImmutableFxSwapConvention", "of", ccyPairFXS, daFXS, bda)
+                Dim templateFXS As Variant: Set templateFXS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.fx.type.FxSwapTemplate", "of", nodePeriod, conventionFXS)
+                Set curveNode = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.node.FxSwapCurveNode", "of", templateFXS, nodeQuoteId)
 
-            Dim conventionBuilderFixedOIS As Variant: Set conventionBuilderFixedOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.FixedRateSwapLegConvention", "builder")
-            Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "accrualBusinessDayAdjustment", bda)
-            Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "accrualFrequency", frequencyOIS)
-            Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "currency", ccy)
-            Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "dayCount", dcc)
-            Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "paymentDateOffset", daOIS)
-            Dim conventionFixedOIS As Variant: Set conventionFixedOIS = m_Host.InvokeMethod(conventionBuilderFixedOIS, "build")
-
-            Dim conventionBuilderFloatingOIS As Variant: Set conventionBuilderFloatingOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.OvernightRateSwapLegConvention", "builder")
-            Call m_Host.InvokeMethod(conventionBuilderFloatingOIS, "accrualBusinessDayAdjustment", bda)
-            Call m_Host.InvokeMethod(conventionBuilderFloatingOIS, "index", curveIndex)
-            Call m_Host.InvokeMethod(conventionBuilderFloatingOIS, "paymentDateOffset", daOIS)
-            Dim conventionFloatingOIS As Variant: Set conventionFloatingOIS = m_Host.InvokeMethod(conventionBuilderFloatingOIS, "build")
-
-            Dim conventionBuilderOIS As Variant: Set conventionBuilderOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.ImmutableFixedOvernightSwapConvention", "builder")
-            Call m_Host.InvokeMethod(conventionBuilderOIS, "fixedLeg", conventionFixedOIS)
-            Call m_Host.InvokeMethod(conventionBuilderOIS, "floatingLeg", conventionFloatingOIS)
-            Call m_Host.InvokeMethod(conventionBuilderOIS, "name", "OIS")
-            Call m_Host.InvokeMethod(conventionBuilderOIS, "spotDateOffset", daOIS)
-            Dim conventionOIS As Variant: Set conventionOIS = m_Host.InvokeMethod(conventionBuilderOIS, "build")
-            
-            Dim templateOIS As Variant: Set templateOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.FixedOvernightSwapTemplate", "of", periodOIS, nodeTenor, conventionOIS)
-            Set curveNode = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.node.FixedOvernightSwapCurveNode", "of", templateOIS, nodeQuoteId, nodeSpread)
+            Else
         
+                Set nodeTenor = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.Tenor", "of", nodePeriod)
+    
+                Dim daOIS As Variant: Set daOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, calendar, bda)
+                Dim frequencyOIS As Variant: Set frequencyOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.schedule.Frequency", "ofYears", 1)
+                Dim periodOIS As Variant: Set periodOIS = m_Host.GetFieldStaticByName("java.time.Period", "ZERO")
+    
+                Dim conventionBuilderFixedOIS As Variant: Set conventionBuilderFixedOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.FixedRateSwapLegConvention", "builder")
+                Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "accrualBusinessDayAdjustment", bda)
+                Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "accrualFrequency", frequencyOIS)
+                Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "currency", ccy)
+                Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "dayCount", dcc)
+                Call m_Host.InvokeMethod(conventionBuilderFixedOIS, "paymentDateOffset", daOIS)
+                Dim conventionFixedOIS As Variant: Set conventionFixedOIS = m_Host.InvokeMethod(conventionBuilderFixedOIS, "build")
+    
+                Dim conventionBuilderFloatingOIS As Variant: Set conventionBuilderFloatingOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.OvernightRateSwapLegConvention", "builder")
+                Call m_Host.InvokeMethod(conventionBuilderFloatingOIS, "accrualBusinessDayAdjustment", bda)
+                Call m_Host.InvokeMethod(conventionBuilderFloatingOIS, "index", curveIndex)
+                Call m_Host.InvokeMethod(conventionBuilderFloatingOIS, "paymentDateOffset", daOIS)
+                Dim conventionFloatingOIS As Variant: Set conventionFloatingOIS = m_Host.InvokeMethod(conventionBuilderFloatingOIS, "build")
+    
+                Dim conventionBuilderOIS As Variant: Set conventionBuilderOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.ImmutableFixedOvernightSwapConvention", "builder")
+                Call m_Host.InvokeMethod(conventionBuilderOIS, "fixedLeg", conventionFixedOIS)
+                Call m_Host.InvokeMethod(conventionBuilderOIS, "floatingLeg", conventionFloatingOIS)
+                Call m_Host.InvokeMethod(conventionBuilderOIS, "name", "OIS")
+                Call m_Host.InvokeMethod(conventionBuilderOIS, "spotDateOffset", daOIS)
+                Dim conventionOIS As Variant: Set conventionOIS = m_Host.InvokeMethod(conventionBuilderOIS, "build")
+                
+                Dim templateOIS As Variant: Set templateOIS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.FixedOvernightSwapTemplate", "of", periodOIS, nodeTenor, conventionOIS)
+                Set curveNode = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.node.FixedOvernightSwapCurveNode", "of", templateOIS, nodeQuoteId, nodeSpread)
+            
+            End If
+
         End If
 
         Call m_Host.InvokeMethod(curveNodes, "add", curveNode)
@@ -336,9 +368,20 @@ End Sub
 ' METHOD
 ' Parses a forward curve.
 
-Private Sub ParseCurveForward(ByVal curveId As Long, ByVal groupRatesBuilder As Variant, ByVal marketDataBuilder As Variant, ByVal vd As Variant, ByVal ccy As Variant, ByVal dcc As Variant, ByVal calendar As Variant, ByVal bda As Variant)
+Private Sub ParseCurveForward(ByVal isLocal As Boolean, ByVal curveId As Long, ByVal groupRatesBuilder As Variant, ByVal marketDataBuilder As Variant, ByVal vd As Variant, ByVal ccyLocal As Variant, ByVal ccyForeign As Variant, ByVal dcc As Variant, ByVal calendar As Variant, ByVal bda As Variant)
 
     Dim i As Long: i = (curveId * 4) - 3
+
+    Dim ccy As Variant
+    Dim ccyType As String
+    
+    If isLocal Then
+        Set ccy = ccyLocal
+        ccyType = "local"
+    Else
+        Set ccy = ccyForeign
+        ccyType = "foreign"
+    End If
 
     Dim curveIndex As Variant: curveIndex = m_Worksheet.Cells(3, i + 1).Value2
     
@@ -359,7 +402,39 @@ Private Sub ParseCurveForward(ByVal curveId As Long, ByVal groupRatesBuilder As 
     Dim curveIndexPeriod As Variant: Set curveIndexPeriod = m_Host.InvokeMethod(curveIndexTenor, "getPeriod")
     
     If (m_Host.InvokeMethod(curveIndex, "getCurrency") <> ccy) Then
-        Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " is defined on an index whose currency is different from the referece one.")
+        Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " is defined on an index whose currency is different from the " & ccyType & " one.")
+    End If
+    
+    If Not isLocal Then
+    
+        Dim curveIndexLocal As Variant
+        Dim li As Long
+                    
+        For li = 1 To m_Worksheet.UsedRange.Columns.Count Step 4
+        
+            If (li <> i) Then
+            
+                Dim curveTypeLocal As String: curveTypeLocal = UCase$(Trim$(m_Worksheet.Cells(2, li + 1).Value2))
+                
+                If (curveTypeLocal = "FORWARD") Then
+    
+                    Dim curveIndexLocalParts() As String: curveIndexLocalParts = Split(UCase$(Trim$(m_Worksheet.Cells(3, li + 1).Value2)), "-")
+                    
+                    If (curveIndexLocalParts(0) = CStr(ccyLocal)) And (curveIndexLocalParts(2) = curveIndexTenorString) Then
+                        Set curveIndexLocal = m_Host.GetPropertyStaticFromName("com.opengamma.strata.basics.index.IborIndices", curveIndexLocalParts(0) & "_" & curveIndexLocalParts(1) & "_" & curveIndexLocalParts(2))
+                        Exit For
+                    End If
+    
+                End If
+            
+            End If
+    
+        Next li
+        
+        If curveIndexLocal Is Nothing Then
+            Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The calibration sheet must define every forward curve on both reference currencie.")
+        End If
+
     End If
 
     Dim curveInterpolation As Variant: curveInterpolation = m_Worksheet.Cells(4, i + 1).Value2
@@ -437,10 +512,14 @@ Private Sub ParseCurveForward(ByVal curveId As Long, ByVal groupRatesBuilder As 
         
         nodeInstrument = UCase$(Trim$(nodeInstrument))
 
-        If (nodeInstrument <> "FIX") And (nodeInstrument <> "FRA") And (nodeInstrument <> "FUT") And (nodeInstrument <> "IRS") Then
+        If (nodeInstrument <> "FIX") And (nodeInstrument <> "FRA") And (nodeInstrument <> "FUT") And (nodeInstrument <> "IRS") And (nodeInstrument <> "XCS") Then
             Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " contains an invalid node instrument in the cell " & m_Worksheet.Cells(j, i + 1).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
-        
+
+        If isLocal And (nodeInstrument = "XCS") Then
+            Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " is defined on an index whose currency is the local one, therefore it cannot associate nodes to cross-currency swap instruments.")
+        End If
+
         If Not IsNumeric(nodeQuote) Then
             Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " contains an invalid node quote in the cell " & m_Worksheet.Cells(j, i + 2).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
         End If
@@ -487,7 +566,7 @@ Private Sub ParseCurveForward(ByVal curveId As Long, ByVal groupRatesBuilder As 
         End If
             
         If (nodeDays > CDbl(21600)) Then
-            Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " must cannot define tenors greater than 60 years.")
+            Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurveForward", "The curve " & CStr(curveId) & " cannot define tenors greater than 60 years.")
         End If
 
         If (j > 8) Then
@@ -580,6 +659,36 @@ Private Sub ParseCurveForward(ByVal curveId As Long, ByVal groupRatesBuilder As 
                 
                 Dim templateIRS As Variant: Set templateIRS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.FixedIborSwapTemplate", "of", periodIRS, nodeTenor, conventionIRS)
                 Set curveNode = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.node.FixedIborSwapCurveNode", "of", templateIRS, nodeQuoteId, nodeSpread)
+                
+            Case "XCS"
+            
+                Set nodeTenor = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.Tenor", "of", nodePeriod)
+            
+                Dim daXCS As Variant: Set daXCS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, calendar, bda)
+
+                Dim conventionBuilderFlatXCS As Variant: Set conventionBuilderFlatXCS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.IborRateSwapLegConvention", "builder")
+                Call m_Host.InvokeMethod(conventionBuilderFlatXCS, "accrualBusinessDayAdjustment", bda)
+                Call m_Host.InvokeMethod(conventionBuilderFlatXCS, "index", curveIndexLocal)
+                Call m_Host.InvokeMethod(conventionBuilderFlatXCS, "notionalExchange", True)
+                Call m_Host.InvokeMethod(conventionBuilderFlatXCS, "paymentDateOffset", daXCS)
+                Dim conventionFlatXCS As Variant: Set conventionFlatXCS = m_Host.InvokeMethod(conventionBuilderFlatXCS, "build")
+
+                Dim conventionBuilderSpreadXCS As Variant: Set conventionBuilderSpreadXCS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.IborRateSwapLegConvention", "builder")
+                Call m_Host.InvokeMethod(conventionBuilderSpreadXCS, "accrualBusinessDayAdjustment", bda)
+                Call m_Host.InvokeMethod(conventionBuilderSpreadXCS, "index", curveIndex)
+                Call m_Host.InvokeMethod(conventionBuilderSpreadXCS, "notionalExchange", True)
+                Call m_Host.InvokeMethod(conventionBuilderSpreadXCS, "paymentDateOffset", daXCS)
+                Dim conventionSpreadXCS As Variant: Set conventionSpreadXCS = m_Host.InvokeMethod(conventionBuilderSpreadXCS, "build")
+
+                Dim conventionBuilderXCS As Variant: Set conventionBuilderXCS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.ImmutableXCcyIborIborSwapConvention", "builder")
+                Call m_Host.InvokeMethod(conventionBuilderXCS, "flatLeg", conventionFlatXCS)
+                Call m_Host.InvokeMethod(conventionBuilderXCS, "spreadLeg", conventionSpreadXCS)
+                Call m_Host.InvokeMethod(conventionBuilderXCS, "name", "XCS")
+                Call m_Host.InvokeMethod(conventionBuilderXCS, "spotDateOffset", daXCS)
+                Dim conventionXCS As Variant: Set conventionXCS = m_Host.InvokeMethod(conventionBuilderXCS, "build")
+
+                Dim templateXCS As Variant: Set templateXCS = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.product.swap.type.XCcyIborIborSwapTemplate", "of", nodeTenor, conventionXCS)
+                Set curveNode = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.node.XCcyIborIborSwapCurveNode", "of", templateXCS, nodeQuoteId, nodeSpread)
 
         End Select
 
@@ -622,28 +731,34 @@ Private Sub ParseCurvesCrossCurrency()
 
     Dim form As New ReferenceDataCrossCurrency: form.Show
     Dim vd As Variant: vd = form.ReferenceValuationDate
-    Dim ccyBase As Variant: ccyBase = form.ReferenceCurrencyBase
-    Dim ccyCounter As Variant: ccyCounter = form.ReferenceCurrencyCounter
+    Dim ccyLocal As Variant: ccyLocal = form.ReferenceCurrencyLocal
+    Dim ccyForeign As Variant: ccyForeign = form.ReferenceCurrencyForeign
+    Dim exchangeRate As Double: exchangeRate = form.ReferenceExchangeRate
     Dim bdc As Variant: bdc = form.ReferenceBusinessDays
     Dim dcc As Variant: dcc = form.ReferenceDaysCount
     Call Unload(form)
     
     Set vd = m_Host.InvokeMethodStaticFromName("java.time.LocalDate", "of", Year(vd), Month(vd), Day(vd))
-    Set ccyBase = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", ccyBase)
-    Set ccyCounter = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", ccyCounter)
+    Set ccyLocal = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", ccyLocal)
+    Set ccyForeign = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", ccyForeign)
     Set bdc = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayConvention", "of", Replace$(bdc, " ", ""))
     Set dcc = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DayCount", "of", dcc)
     
-    Dim calendarBase As Variant: Set calendarBase = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccyBase)
-    Dim calendarCounter As Variant: Set calendarCounter = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccyCounter)
-    Dim bdaBase As Variant: Set bdaBase = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", bdc, calendarBase)
-    Dim bdaCounter As Variant: Set bdaCounter = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", bdc, calendarCounter)
+    Dim calendarLocal As Variant: Set calendarLocal = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccyLocal)
+    Dim calendarForeign As Variant: Set calendarForeign = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccyForeign)
+    Dim calendarMix As Variant: Set calendarMix = m_Host.InvokeMethod(calendarLocal, "combinedWith", calendarForeign)
+    Dim bdaLocal As Variant: Set bdaLocal = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", bdc, calendarLocal)
+    Dim bdaForeign As Variant: Set bdaForeign = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", bdc, calendarForeign)
+    Dim bdaMix As Variant: Set bdaMix = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", bdc, calendarMix)
 
-    Dim groupName As Variant: Set groupName = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.CurveGroupName", "of", CStr(ccyBase) & "/" & CStr(ccyCounter) & "-CALIBRATED")
+    Dim groupName As Variant: Set groupName = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.CurveGroupName", "of", CStr(ccyLocal) & "/" & CStr(ccyForeign) & "-CALIBRATED")
     Dim groupRatesBuilder As Variant: Set groupRatesBuilder = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.market.curve.RatesCurveGroupDefinition", "builder")
     Call m_Host.InvokeMethod(groupRatesBuilder, "name", groupName)
     
+    Dim fxRateId As Variant: Set fxRateId = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.data.FxRateId", "of", ccyLocal, ccyForeign)
+    Dim fxRateValue As Variant: Set fxRateValue = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.FxRate", "of", ccyLocal, ccyForeign, exchangeRate)
     Dim marketDataBuilder As Variant: Set marketDataBuilder = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.data.ImmutableMarketData", "builder", vd)
+    Call m_Host.InvokeMethod(marketDataBuilder, "addValue", fxRateId, fxRateValue)
     
     Dim cc As Long: cc = m_Worksheet.UsedRange.Columns.Count
     Dim curvesCount As Long: curvesCount = cc / 4
@@ -682,21 +797,21 @@ Private Sub ParseCurvesCrossCurrency()
             Case "DISCOUNT"
             
                 If discountCurveBaseParsed And discountCurveCounterParsed Then
-                    Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurvesCrossCurrency", "The calibration sheet must contain only two discount curves, one for each referece currency.")
+                    Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurvesCrossCurrency", "The calibration sheet must contain only two discount curves, one for the local currency and one for the foreign currency.")
                 End If
 
                 Dim curveIndexDiscount As Variant: Set curveIndexDiscount = m_Host.GetPropertyStaticFromName("com.opengamma.strata.basics.index.OvernightIndices", Replace$(curveIndex, "-", "_"))
                 Dim curveCurrencyDiscount As Variant: Set curveCurrencyDiscount = m_Host.InvokeMethod(curveIndexDiscount, "getCurrency")
                 
-                If (curveCurrencyDiscount <> ccyBase) And (curveCurrencyDiscount <> ccyCounter) Then
+                If (curveCurrencyDiscount <> ccyLocal) And (curveCurrencyDiscount <> ccyForeign) Then
                     Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurvesCrossCurrency", "The curve " & CStr(curveId) & " is defined on an index whose currency is different from the referece ones.")
                 End If
                 
-                If (curveCurrencyDiscount = ccyBase) Then
-                    Call ParseCurveDiscount(curveId, groupRatesBuilder, marketDataBuilder, vd, ccyBase, dcc, calendarBase, bdaBase)
+                If (curveCurrencyDiscount = ccyLocal) Then
+                    Call ParseCurveDiscount(True, curveId, groupRatesBuilder, marketDataBuilder, vd, ccyLocal, ccyForeign, dcc, calendarLocal, bdaLocal)
                     discountCurveBaseParsed = True
                 Else
-                    Call ParseCurveDiscount(curveId, groupRatesBuilder, marketDataBuilder, vd, ccyCounter, dcc, calendarCounter, bdaCounter)
+                    Call ParseCurveDiscount(False, curveId, groupRatesBuilder, marketDataBuilder, vd, ccyLocal, ccyForeign, dcc, calendarMix, bdaMix)
                     discountCurveCounterParsed = True
                 End If
             
@@ -705,14 +820,14 @@ Private Sub ParseCurvesCrossCurrency()
                 Dim curveIndexForward As Variant: Set curveIndexForward = m_Host.GetPropertyStaticFromName("com.opengamma.strata.basics.index.IborIndices", Replace$(curveIndex, "-", "_"))
                 Dim curveCurrencyForward As Variant: Set curveCurrencyForward = m_Host.InvokeMethod(curveIndexForward, "getCurrency")
                 
-                If (curveCurrencyForward <> ccyBase) And (curveCurrencyForward <> ccyCounter) Then
+                If (curveCurrencyForward <> ccyLocal) And (curveCurrencyForward <> ccyForeign) Then
                     Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurvesCrossCurrency", "The curve " & CStr(curveId) & " is defined on an index whose currency is different from the referece ones.")
                 End If
             
-                If (curveCurrencyForward = ccyBase) Then
-                    Call ParseCurveForward(curveId, groupRatesBuilder, marketDataBuilder, vd, ccyBase, dcc, calendarBase, bdaBase)
+                If (curveCurrencyForward = ccyLocal) Then
+                    Call ParseCurveForward(True, curveId, groupRatesBuilder, marketDataBuilder, vd, ccyLocal, ccyForeign, dcc, calendarLocal, bdaLocal)
                 Else
-                    Call ParseCurveForward(curveId, groupRatesBuilder, marketDataBuilder, vd, ccyCounter, dcc, calendarCounter, bdaCounter)
+                    Call ParseCurveForward(False, curveId, groupRatesBuilder, marketDataBuilder, vd, ccyLocal, ccyForeign, dcc, calendarMix, bdaMix)
                 End If
                 
             Case Else
@@ -800,12 +915,12 @@ Private Sub ParseCurvesSingleCurrency()
                     Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurvesSingleCurrency", "The calibration sheet must contain only one discount curve.")
                 End If
     
-                Call ParseCurveDiscount(curveId, groupRatesBuilder, marketDataBuilder, vd, ccy, dcc, calendar, bda)
+                Call ParseCurveDiscount(True, curveId, groupRatesBuilder, marketDataBuilder, vd, ccy, Nothing, dcc, calendar, bda)
                 
                 discountCurveParsed = True
             
             Case "FORWARD"
-                Call ParseCurveForward(curveId, groupRatesBuilder, marketDataBuilder, vd, ccy, dcc, calendar, bda)
+                Call ParseCurveForward(True, curveId, groupRatesBuilder, marketDataBuilder, vd, ccy, Nothing, dcc, calendar, bda)
                 
             Case Else
                 Call Err.Raise(vbObjectError + 1, "CurvesManager.ParseCurvesSingleCurrency", "The calibration sheet contains an invalid curve type in the cell " & m_Worksheet.Cells(2, i + 1).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ".")
@@ -855,7 +970,7 @@ Public Sub CalibrateCurves()
         Call Err.Raise(vbObjectError + 1, "CurvesManager.CalibrateCurves", "This instance has not been initialized yet.")
     End If
 
-    Dim calibrator As Variant: Set calibrator = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.pricer.curve.RatesCurveCalibrator", "of", 0.000000001, 0.000000001, 100)
+    Dim calibrator As Variant: Set calibrator = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.pricer.curve.RatesCurveCalibrator", "of", 0.000000001, 0.000000001, 1000)
     Dim rd As Variant: Set rd = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.ReferenceData", "standard")
     
     Set m_CalibrationResult = m_Host.InvokeMethod(calibrator, "calibrate", m_GroupRates, m_MarketData, rd)

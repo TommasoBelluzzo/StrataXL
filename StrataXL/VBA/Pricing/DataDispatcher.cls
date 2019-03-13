@@ -344,7 +344,7 @@ Private Sub ParseWorksheetExchange(ByVal ws As Worksheet, ByVal ratesProviderBui
         
         Dim rate As Variant: rate = ws.Cells(i, 3).Value2
         
-        If IsEmpty(rate) Or Not IsNumeric(rate) Then
+        If IsEmpty(rate) Or Not IsNumeric(rate) Or (rate <= 0) Then
             Call Err.Raise(vbObjectError + 1, "DataDispatcher.ParseWorksheetExchange", "The sheet ""Setup-Exchange"" contains invalid data in the cell [" & CStr(i) & ", 3].")
         End If
 
