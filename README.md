@@ -26,7 +26,7 @@ StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.i
 
 ## Usage
 
-The spreadsheet `StrataXL-Template.xlsm` is a good starting point for creating brand new StrataXL scripts from scratch. StrataXL includes two scripted Excel spreadsheets:
+The spreadsheet `StrataXL-Template.xlsm` is a good starting point for creating brand new StrataXL scripts from scratch. StrataXL includes two scripted Excel spreadsheets (market data, included into the spreadsheets, and historical time series, located into the `\StrataXL\Data\` folder, are as of 15th February 2019 and must be manually updated if a more recent valuation date is required):
 
  * `StrataXL-Calibration.xlsm`, a tool for calibrating interest rate curves within a multi-curve framework:
    * Cross-Currency Curves
