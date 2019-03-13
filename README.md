@@ -26,7 +26,7 @@ StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.i
 
 ## Usage
 
-StrataXL includes two scripted Excel spreadsheets:
+The spreadsheet `StrataXL-Template.xlsm` is a good starting point for creating brand new StrataXL scripts from scratch. StrataXL includes two scripted Excel spreadsheets:
 
  * `StrataXL-Calibration.xlsm`, a tool for calibrating interest rate curves within a multi-curve framework:
    * Cross-Currency Curves
@@ -40,6 +40,4 @@ StrataXL includes two scripted Excel spreadsheets:
    * Interest Rate Swaps
    * Term Deposits
 
-The spreadsheet `StrataXL-Template.xlsm` is a good starting point for creating brand new StrataXL scripts from scratch.
-
-Debugging exceptions thrown by the underlying .NET CLR can sometimes be tricky. That's why they are logged into a file called `StrataXL.log` located into the `\StrataXL\` folder. Exception messages and stack traces written into the LOG file can provide useful insights about the errors occurred during the execution of the VBA scripts.
+Debugging exceptions thrown by the underlying .NET CLR can sometimes be tricky. That's why they are logged into a file called `StrataXL.log`, which is located into the `\StrataXL\` folder. Exception messages and stack traces written into the log file can provide useful insights about the errors occurred during the execution of the VBA scripts.
