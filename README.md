@@ -1,6 +1,6 @@
 # StrataXL
 
-StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.io/), an open source library specialized in financial derivatives and market risk analysis. The technical implementation is achieved by using two nested virtual machines, through the following steps:
+StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.io/), an open source library specialized in financial derivative instruments and market risk analysis. The technical implementation is achieved by using two nested virtual machines, through the following steps:
 
  * OpenGamma Strata is converted from Java to .NET with [IKVM](https://www.ikvm.net/).
  * An instance of the .NET Common Language Runtime is hosted within the Excel environment.
@@ -25,5 +25,19 @@ StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.i
  1. The above step can be performed alone when an upgrade of OpenGamma Strata is required.
 
 ## Usage
+
+StrataXL includes two scripted Excel spreadsheets:
+
+ * `StrataXL-Calibration.xlsm`, a tool for calibrating the following interest rate curves within a multi-curve framework:
+   * Single-Currency Curves
+   * Cross-Currency Curves
+ * `StrataXL-Pricing.xlsm`, a tool for pricing the following asset classes:
+   * Bullet Payments
+   * Cross-Currency Swaps
+   * Forex Trades (Spots, Forwards and Swaps)
+   * Forward Rate Agreements
+   * Interest Rate Futures
+   * Interest Rate Swaps
+   * Term Deposits
 
 The spreadsheet `StrataXL-Template.xlsm` can be used as a starting point for creating brand new StrataXL scripts from scratch
