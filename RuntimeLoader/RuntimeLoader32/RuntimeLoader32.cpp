@@ -3,10 +3,10 @@
 #include <metahost.h>
 
 #import "mscorlib.tlb" \
-	raw_interfaces_only \
+    raw_interfaces_only \
     high_property_prefixes("_get", "_put", "_putref") \
     rename("ReportEvent", "InteropServices_ReportEvent") \
-	exclude("ITrackingHandler")
+    exclude("ITrackingHandler")
 
 #pragma comment(lib,"mscoree.lib")
 
@@ -14,21 +14,21 @@ using namespace mscorlib;
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID lpReserved)
 {
-	return TRUE;
+    return TRUE;
 }
 
 extern "C" __declspec(dllexport) HRESULT __stdcall LoadRuntime(ICorRuntimeHost* &pCorRuntimeHost)
 {
-	ICLRMetaHost* pMetaHost = nullptr;
-	ICLRRuntimeInfo* pRuntimeInfo = nullptr;
-	BOOL isLoadable = FALSE;
+    ICLRMetaHost* pMetaHost = nullptr;
+    ICLRRuntimeInfo* pRuntimeInfo = nullptr;
+    BOOL isLoadable = FALSE;
 
-	HRESULT hr = CLRCreateInstance(CLSID_CLRMetaHost, IID_PPV_ARGS(&pMetaHost));
+    HRESULT hr = CLRCreateInstance(CLSID_CLRMetaHost, IID_PPV_ARGS(&pMetaHost));
   
-	if (FAILED(hr))
+    if (FAILED(hr))
         goto Cleanup;
 
-	hr = pMetaHost->GetRuntime(_T("v4.0.30319"), IID_PPV_ARGS(&pRuntimeInfo));
+    hr = pMetaHost->GetRuntime(_T("v4.0.30319"), IID_PPV_ARGS(&pRuntimeInfo));
 
     if (FAILED(hr))
         goto Cleanup;
@@ -40,13 +40,13 @@ extern "C" __declspec(dllexport) HRESULT __stdcall LoadRuntime(ICorRuntimeHost* 
 
     if (!isLoadable)
     {
-		hr = E_FAIL;
+        hr = E_FAIL;
         goto Cleanup;
     }
 	
-	hr = pRuntimeInfo->GetInterface(CLSID_CorRuntimeHost, IID_PPV_ARGS(&pCorRuntimeHost));
+    hr = pRuntimeInfo->GetInterface(CLSID_CorRuntimeHost, IID_PPV_ARGS(&pCorRuntimeHost));
 
-	Cleanup:
+    Cleanup:
 
     if (pMetaHost)
     {
@@ -60,5 +60,5 @@ extern "C" __declspec(dllexport) HRESULT __stdcall LoadRuntime(ICorRuntimeHost* 
         pRuntimeInfo = nullptr;
     }
 
-	return hr;
+    return hr;
 }
