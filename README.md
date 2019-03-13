@@ -23,3 +23,7 @@ StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.i
     * downloads the latest release of OpenGamma Strata;
     * converts the JAR files of the package into .NET libraies and places the output into the `\StrataXL\Libraries\` folder.
  1. The above step can be performed alone when an upgrade of OpenGamma Strata is required.
+
+## Usage
+
+The spreadsheet `StrataXL-Template.xlsm` can be used as a starting point for creating brand new StrataXL scripts from scratch
