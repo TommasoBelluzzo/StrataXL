@@ -34,7 +34,7 @@ The spreadsheet `StrataXL-Template.xlsm` is a good starting point for creating b
  * `StrataXL-Pricing.xlsm`, a tool for pricing the following asset classes:
    * Bullet Payments
    * Cross-Currency Swaps
-   * Forex Trades (Spots, Forwards and Swaps)
+   * Forex Products (Spots, Forwards and Swaps)
    * Forward Rate Agreements
    * Interest Rate Futures
    * Interest Rate Swaps
