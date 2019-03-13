@@ -17,7 +17,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCopyright("Copyright ©2019 Tommaso Belluzzo")]
 [assembly: AssemblyCulture("")]
 [assembly: AssemblyProduct("StrataXL")]
-[assembly: AssemblyTitle("A tool for creating .NET wrappers of the Opengamma Strata library, part of StrataXL.")]
+[assembly: AssemblyTitle("A tool for creating .NET wrappers of OpenGamma Strata, part of StrataXL.")]
 [assembly: AssemblyTrademark("")]
 #endregion
 
