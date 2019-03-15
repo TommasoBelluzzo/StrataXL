@@ -26,40 +26,48 @@ Option Explicit
 
 ' IMPORTS
 
-Private Declare PtrSafe Function FindWindow Lib "User32.dll" Alias "FindWindowA" _
-( _
-    ByVal lpClassName As String, _
-    ByVal lpWindowName As String _
-) As LongPtr
-
 #If Win64 Then
+
+    Private Declare PtrSafe Function FindWindow Lib "User32.dll" Alias "FindWindowA" _
+    ( _
+        ByVal lpClassName As String, _
+        ByVal lpWindowName As String _
+    ) As LongPtr
+    
     Private Declare PtrSafe Function GetWindowLongPtr Lib "User32.dll" Alias "GetWindowLongPtrA" _
     ( _
         ByVal hWnd As LongPtr, _
         ByVal nIndex As Long _
     ) As LongPtr
-#Else
-    Private Declare PtrSafe Function GetWindowLongPtr Lib "User32.dll" Alias "GetWindowLongA" _
-    ( _
-        ByVal hWnd As LongPtr, _
-        ByVal nIndex As Long _
-    ) As LongPtr
-#End If
-
-#If Win64 Then
+    
     Private Declare PtrSafe Function SetWindowLongPtr Lib "User32.dll" Alias "SetWindowLongPtrA" _
     ( _
         ByVal hWnd As LongPtr, _
         ByVal nIndex As Long, _
         ByVal dwNewLong As LongPtr _
     ) As LongPtr
+
 #Else
+    
+    Private Declare PtrSafe Function FindWindow Lib "User32.dll" Alias "FindWindowA" _
+    ( _
+        ByVal lpClassName As String, _
+        ByVal lpWindowName As String _
+    ) As Long
+    
+    Private Declare PtrSafe Function GetWindowLongPtr Lib "User32.dll" Alias "GetWindowLongA" _
+    ( _
+        ByVal hWnd As LongPtr, _
+        ByVal nIndex As Long _
+    ) As Long
+    
     Private Declare PtrSafe Function SetWindowLongPtr Lib "User32.dll" Alias "SetWindowLongA" _
     ( _
         ByVal hWnd As LongPtr, _
         ByVal nIndex As Long, _
         ByVal dwNewLong As LongPtr _
-    ) As LongPtr
+    ) As Long
+
 #End If
 
 ' CONSTANTS
@@ -104,7 +112,7 @@ End Property
 
 Private Sub UserForm_Initialize()
 
-    Dim handle As Long, lStyle As Long
+    Dim handle As LongPtr
     
     If (Val(Application.Version) >= 9) Then
        handle = FindWindow("ThunderDFrame", Me.Caption)
@@ -112,8 +120,8 @@ Private Sub UserForm_Initialize()
        handle = FindWindow("ThunderXFrame", Me.Caption)
     End If
     
-    Dim Style As Long: Style = GetWindowLongPtr(handle, GWL_STYLE)
-    Call SetWindowLongPtr(handle, GWL_STYLE, Style And Not WS_SYSMENU)
+    Dim lStyle As LongPtr: lStyle = GetWindowLongPtr(handle, GWL_STYLE)
+    Call SetWindowLongPtr(handle, GWL_STYLE, lStyle And Not WS_SYSMENU)
 
     FieldValuationDate.Text = "15/02/2019"
     
