@@ -521,7 +521,10 @@ End Function
 
 Private Sub PerformCleanup()
 
-    m_Initialized = False
+    On Error Resume Next
+
+    Call InvokeMethodStaticFromName("System.GC", "Collect")
+    Call InvokeMethodStaticFromName("System.GC", "WaitForPendingFinalizers")
     
     m_LibrariesPath = vbNullString
     m_LogFile = vbNullString
@@ -550,6 +553,8 @@ Private Sub PerformCleanup()
         Set m_Host = Nothing
 
     End If
+    
+    m_Initialized = False
 
 End Sub
 
