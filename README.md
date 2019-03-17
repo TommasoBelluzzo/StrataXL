@@ -38,7 +38,7 @@ StrataXL can be used on every machine equipped with Windows 7 or greater; it is 
 
 The spreadsheet `StrataXL-Template.xlsm` is a good starting point for creating brand new StrataXL scripts from scratch. StrataXL includes two scripted Excel spreadsheets (market data, included into the spreadsheets, and historical time series, located into the `\StrataXL\Data\` folder, are as of 15th February 2019 and must be manually updated if a later valuation date must be used):
 
- * `StrataXL-Curves.xlsm`, a multi-curve framework for bootstrapping and calibrating cross-currency and single-currency interest rate curves.
+ * `StrataXL-Curves.xlsm`, a multi-curve framework for calibrating cross-currency and single-currency interest rate curves.
  * `StrataXL-Pricing.xlsm`, a tool for pricing and analyzing the cash flows of the following built-in asset classes:
    * Bullet Payments
    * Cross-Currency Swaps
