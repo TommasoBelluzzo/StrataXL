@@ -1,14 +1,14 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ReferenceData 
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ReferenceDataSingleCurrency 
    Caption         =   "Reference Data"
-   ClientHeight    =   2895
+   ClientHeight    =   2775
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3975
-   OleObjectBlob   =   "ReferenceData.frx":0000
+   OleObjectBlob   =   "ReferenceDataSingleCurrency.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
-Attribute VB_Name = "ReferenceData"
+Attribute VB_Name = "ReferenceDataSingleCurrency"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
@@ -48,25 +48,25 @@ Option Explicit
     ) As LongPtr
 
 #Else
-    
+
     Private Declare PtrSafe Function FindWindow Lib "User32.dll" Alias "FindWindowA" _
     ( _
         ByVal lpClassName As String, _
         ByVal lpWindowName As String _
     ) As Long
-    
+
     Private Declare PtrSafe Function GetWindowLongPtr Lib "User32.dll" Alias "GetWindowLongA" _
     ( _
         ByVal hWnd As LongPtr, _
         ByVal nIndex As Long _
-    ) As Long
+    ) As LongPtr
     
     Private Declare PtrSafe Function SetWindowLongPtr Lib "User32.dll" Alias "SetWindowLongA" _
     ( _
         ByVal hWnd As LongPtr, _
         ByVal nIndex As Long, _
         ByVal dwNewLong As LongPtr _
-    ) As Long
+    ) As LongPtr
 
 #End If
 
@@ -79,7 +79,7 @@ Const WS_SYSMENU As Long = &H80000
 
 Dim m_ReferenceBusinessDays As String
 Dim m_ReferenceCurrency As String
-Dim m_ReferenceDaysOffset As Long
+Dim m_ReferenceDaysCount As String
 Dim m_ReferenceValuationDate As Date
 
 ' PROPERTY
@@ -101,11 +101,11 @@ Property Get ReferenceCurrency() As String
 End Property
 
 ' PROPERTY
-' Gets the reference days offset.
+' Gets the reference days count convention.
 
-Property Get ReferenceDaysOffset() As Long
+Property Get ReferenceDaysCount() As String
 
-    ReferenceDaysOffset = m_ReferenceDaysOffset
+    ReferenceDaysCount = m_ReferenceDaysCount
 
 End Property
 
@@ -136,12 +136,52 @@ Private Sub UserForm_Initialize()
     FieldValuationDate.Text = "15/02/2019"
     
     With FieldCurrency
+        .AddItem "AED"
+        .AddItem "ARS"
+        .AddItem "AUD"
+        .AddItem "BGN"
+        .AddItem "BHD"
+        .AddItem "BRL"
+        .AddItem "CAD"
         .AddItem "CHF"
+        .AddItem "CLP"
+        .AddItem "CNY"
+        .AddItem "CNY"
+        .AddItem "COP"
+        .AddItem "CZK"
+        .AddItem "DKK"
+        .AddItem "EGP"
         .AddItem "EUR"
         .AddItem "GBP"
+        .AddItem "HKD"
+        .AddItem "HRK"
+        .AddItem "HUF"
+        .AddItem "IDR"
+        .AddItem "ILS"
+        .AddItem "INR"
+        .AddItem "ISK"
         .AddItem "JPY"
+        .AddItem "KRW"
+        .AddItem "MXN"
+        .AddItem "MYR"
+        .AddItem "NOK"
+        .AddItem "NZD"
+        .AddItem "PEN"
+        .AddItem "PHP"
+        .AddItem "PKR"
+        .AddItem "PLN"
+        .AddItem "RON"
+        .AddItem "RUB"
+        .AddItem "SAR"
+        .AddItem "SEK"
+        .AddItem "SGD"
+        .AddItem "THB"
+        .AddItem "TRY"
+        .AddItem "TWD"
+        .AddItem "UAH"
         .AddItem "USD"
-        .ListIndex = 1
+        .AddItem "ZAR"
+        .ListIndex = 43
     End With
     
     With FieldBusinessDays
@@ -154,7 +194,29 @@ Private Sub UserForm_Initialize()
         .ListIndex = 3
     End With
     
-    FieldDaysOffset.Text = "2"
+    With FieldDaysCount
+        .AddItem "30/360 ISDA"
+        .AddItem "30/360 PSA"
+        .AddItem "30E/360"
+        .AddItem "30E/360 ISDA"
+        .AddItem "30E+/360"
+        .AddItem "30U/360"
+        .AddItem "30U/360 EOM"
+        .AddItem "ACT/360"
+        .AddItem "ACT/364"
+        .AddItem "ACT/365.25"
+        .AddItem "ACT/365A"
+        .AddItem "ACT/365F"
+        .AddItem "ACT/365L"
+        .AddItem "ACT/ACT AFB"
+        .AddItem "ACT/ACT ICMA"
+        .AddItem "ACT/ACT ISDA"
+        .AddItem "ACT/ACT AFB"
+        .AddItem "ACT/ACT ICMA"
+        .AddItem "ACT/ACT YEAR"
+        .AddItem "NL/365"
+        .ListIndex = 7
+    End With
 
 End Sub
 
@@ -164,34 +226,22 @@ End Sub
 Private Sub ButtonOk_Click()
 
     Dim vd As String: vd = FieldValuationDate.Text
-    Dim offset As String: offset = FieldDaysOffset.Text
     
-    Dim shouldExit As Boolean: shouldExit = False
+    If Not IsDate(vd) Then
 
-    If Not IsDate(vd) Or (DateDiff("d", CDate(vd), Now()) < 0) Then
         FieldValuationDate.BackColor = RGB(247, 215, 215)
         FieldValuationDate.BorderColor = RGB(255, 0, 0)
-        shouldExit = True
-    End If
-    
-    If (offset <> "0") And (offset <> "1") And (offset <> "2") And (offset <> "3") Then
-        FieldDaysOffset.BackColor = RGB(247, 215, 215)
-        FieldDaysOffset.BorderColor = RGB(255, 0, 0)
-        shouldExit = True
-    End If
-    
-    If shouldExit Then
+
         Exit Sub
+
     End If
     
     FieldValuationDate.BackColor = &H8000000F
     FieldValuationDate.BorderColor = &H80000012
-    FieldDaysOffset.BackColor = &H8000000F
-    FieldDaysOffset.BorderColor = &H80000012
     
     m_ReferenceBusinessDays = FieldBusinessDays.Text
     m_ReferenceCurrency = FieldCurrency.Text
-    m_ReferenceDaysOffset = CLng(offset)
+    m_ReferenceDaysCount = FieldDaysCount.Text
     m_ReferenceValuationDate = CDate(vd)
 
     Me.Hide

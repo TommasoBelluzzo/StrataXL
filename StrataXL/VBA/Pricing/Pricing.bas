@@ -21,27 +21,28 @@ Public Sub PricingFxNonDeliverable()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     
-    Call dd.CleanCurrentTradesSheet(False, False)
+    Call dd.CleanCurrentTradesSheet(False, True, 5)
     
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.fx.FxNdfTradeCalculations", "DEFAULT")
 
+    Dim id As Long: id = 1
     Dim i As Long
 
-    For i = 2 To rc
+    For i = 2 To rc Step 2
 
         If (DateDiff("d", dd.ValuationDatePlain, ws.Cells(i, 6).Value2) > 0) Then
-            Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxNonDeliverable", "The trade " & CStr(i - 1) & " must have a trade date less than or equal to the valuation date.")
+            Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxNonDeliverable", "The trade " & CStr(id) & " must have a trade date less than or equal to the valuation date.")
         End If
         
         If (DateDiff("d", ws.Cells(i, 7).Value2, ws.Cells(i, 6).Value2) >= 0) Then
-            Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxNonDeliverable", "The trade " & CStr(i - 1) & " must have a maturity date greater than the trade date.")
+            Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxNonDeliverable", "The trade " & CStr(id) & " must have a maturity date greater than the trade date.")
         End If
 
         If (ws.Cells(i, 3).Value2 = ws.Cells(i, 4).Value2) Then
-            Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxNonDeliverable", "The trade " & CStr(i - 1) & " must be defined on different currencies.")
+            Call Err.Raise(vbObjectError + 1, "Pricing.PricingFxNonDeliverable", "The trade " & CStr(id) & " must be defined on different currencies.")
         End If
 
         Dim iText As String: iText = CStr(i)
@@ -70,8 +71,8 @@ Public Sub PricingFxNonDeliverable()
         Dim calendarSettlement As Variant: Set calendarSettlement = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccySettlement)
         Dim calendarNonDeliverable As Variant: Set calendarNonDeliverable = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", ccyNonDeliverable)
         Dim calendarIndex As Variant: Set calendarIndex = host.InvokeMethod(calendarSettlement, "combinedWith", calendarNonDeliverable)
-        Dim adjustmentFixing As Variant: Set adjustmentFixing = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, tradeCalendar)
-        Dim adjustmentMaturity As Variant: Set adjustmentMaturity = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, tradeCalendar)
+        Dim adjustmentFixing As Variant: Set adjustmentFixing = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -dd.DaysOffset, tradeCalendar)
+        Dim adjustmentMaturity As Variant: Set adjustmentMaturity = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", dd.DaysOffset, tradeCalendar)
 
         Dim indexBuilder As Variant: Set indexBuilder = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.index.ImmutableFxIndex", "builder")
         Call host.InvokeMethod(indexBuilder, "currencyPair", ccyPair)
@@ -100,24 +101,48 @@ Public Sub PricingFxNonDeliverable()
         Set trade = host.InvokeMethod(trade, "resolve", dd.ReferenceData)
 
         Dim pv As Variant: Set pv = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider)
-        Dim pvValue As Double: pvValue = host.InvokeMethod(pv, "getAmount")
+        Set pv = host.InvokeMethod(pv, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValue As Double: pvValue = Round(host.InvokeMethod(pv, "getAmount"), 2)
         
-        Dim pv01Value As Double
-        
+        Dim pv01Value As Double, ceValueSettlement As Double, ceValueNonDeliverable As Double, fr As Double
+
         If (pvValue = 0) Then
+
             pv01Value = 0
+            ceValueSettlement = 0
+            ceValueNonDeliverable = 0
+            fr = 0
+
         Else
+
             Dim pv01 As Variant: Set pv01 = host.InvokeMethod(pricer, "pv01CalibratedSum", trade, dd.RatesProvider)
             Dim pv01Amount As Variant: Set pv01Amount = host.InvokeMethod(pv01, "getAmountOrZero", ccySettlement)
-            pv01Value = host.InvokeMethod(pv01Amount, "getAmount")
+            Set pv01Amount = host.InvokeMethod(pv01Amount, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01Value = Round(host.InvokeMethod(pv01Amount, "getAmount"), 2)
+            
+            Dim ce As Variant: Set ce = host.InvokeMethod(pricer, "currencyExposure", trade, dd.RatesProvider)
+            
+            Dim ceAmountSettlement As Variant: Set ceAmountSettlement = host.InvokeMethod(ce, "getAmountOrZero", ccySettlement)
+            ceValueSettlement = Round(host.InvokeMethod(ceAmountSettlement, "getAmount"), 2)
+
+            Dim ceAmountNonDeliverable As Variant: Set ceAmountNonDeliverable = host.InvokeMethod(ce, "getAmountOrZero", ccyNonDeliverable)
+            ceValueNonDeliverable = Round(host.InvokeMethod(ceAmountNonDeliverable, "getAmount"), 2)
+            
+            Dim frObject As Variant: Set frObject = host.InvokeMethod(pricer, "forwardFxRate", trade, dd.RatesProvider)
+            fr = Round(host.InvokeMethod(frObject, "fxRate", ccyPair), 6)
+
         End If
-        
-        ws.Cells(i, cc - 1).Value = pvValue
-        ws.Cells(i, cc).Value = pv01Value
+
+        ws.Cells(i, cc - 4).Value2 = pvValue
+        ws.Cells(i, cc - 3).Value2 = pv01Value
+        ws.Cells(i, cc - 2).Value2 = ceValueSettlement
+        ws.Cells(i + 1, cc - 2).Value2 = ceValueNonDeliverable
+        ws.Cells(i, cc - 1).Value2 = fr
+        ws.Cells(i, cc).Value2 = "-"
         
         With Application.Union(wsCashFlows.Cells(2, cashFlowsOffset), wsCashFlows.Cells(2, cashFlowsOffset + 1), wsCashFlows.Cells(2, cashFlowsOffset + 2))
             .Merge
-            .Value2 = "Trade " & CStr(i - 1)
+            .Value2 = "Trade " & CStr(id)
             .Borders.Color = 0
             .Borders.LineStyle = xlContinuous
             .Borders.Weight = xlThin
@@ -143,12 +168,9 @@ Public Sub PricingFxNonDeliverable()
             Dim cfIndexRate As Variant: Set cfIndexRate = host.InvokeMethod(dd.RatesProvider, "fxIndexRates", pIndex)
             Dim cfObservedRate As Double: cfObservedRate = host.InvokeMethod(cfIndexRate, "rate", pObservation, ccySettlement)
             Dim cfNotional As Variant: Set cfNotional = host.InvokeMethod(pNotional, "multipliedBy", CDbl(1) - (cfFxRate / cfObservedRate))
-            
-            Dim cfDate As String: cfDate = host.InvokeMethod(pPaymentDate, "format", dd.DateFormatter)
-            Dim cfAmount As Double: cfAmount = host.InvokeMethod(cfNotional, "getAmount")
 
             With wsCashFlows.Cells(3, cashFlowsOffset)
-                .Value2 = cfDate
+                .Value2 = host.InvokeMethod(pPaymentDate, "format", dd.DateFormatter)
                 .NumberFormat = "dd/mm/yyyy"
                 .Borders.Color = 0
                 .Borders.LineStyle = xlContinuous
@@ -166,7 +188,7 @@ Public Sub PricingFxNonDeliverable()
             End With
             
             With wsCashFlows.Cells(3, cashFlowsOffset + 2)
-                .Value2 = cfAmount
+                .Value2 = Round(host.InvokeMethod(cfNotional, "getAmount"), 2)
                 .NumberFormat = "#,##0.00"
                 .Borders.Color = 0
                 .Borders.LineStyle = xlContinuous
@@ -176,6 +198,7 @@ Public Sub PricingFxNonDeliverable()
 
         End If
         
+        id = id + 1
         cashFlowsOffset = cashFlowsOffset + 3
 
     Next i
@@ -219,7 +242,7 @@ Public Sub PricingFxSingle()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     
-    Call dd.CleanCurrentTradesSheet(False, True)
+    Call dd.CleanCurrentTradesSheet(False, True, 5)
     
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
@@ -281,10 +304,14 @@ Public Sub PricingFxSingle()
         Dim ccy2 As Variant: Set ccy2 = host.InvokeMethod(ccyPair, "getCounter")
         
         Dim pv As Variant: Set pv = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider)
+        
         Dim pvAmountBase As Variant: Set pvAmountBase = host.InvokeMethod(pv, "getAmountOrZero", ccy1)
+        Set pvAmountBase = host.InvokeMethod(pvAmountBase, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValueBase As Double: pvValueBase = Round(host.InvokeMethod(pvAmountBase, "getAmount"), 2)
+        
         Dim pvAmountCounter As Variant: Set pvAmountCounter = host.InvokeMethod(pv, "getAmountOrZero", ccy2)
-        Dim pvValueBase As Double: pvValueBase = host.InvokeMethod(pvAmountBase, "getAmount")
-        Dim pvValueCounter As Double: pvValueCounter = host.InvokeMethod(pvAmountCounter, "getAmount")
+        Set pvAmountCounter = host.InvokeMethod(pvAmountCounter, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValueCounter As Double: pvValueCounter = Round(host.InvokeMethod(pvAmountCounter, "getAmount"), 2)
 
         Dim pv01 As Variant: Set pv01 = host.InvokeMethod(pricer, "pv01CalibratedSum", trade, dd.RatesProvider)
         Dim pv01ValueBase As Double, pv01ValueCounter As Double
@@ -292,28 +319,90 @@ Public Sub PricingFxSingle()
         If (pvValueBase = 0) Then
             pv01ValueBase = 0
         Else
+
             Dim pv01AmountBase As Variant: Set pv01AmountBase = host.InvokeMethod(pv01, "getAmountOrZero", ccy1)
-            pv01ValueBase = host.InvokeMethod(pv01AmountBase, "getAmount")
+            Set pv01AmountBase = host.InvokeMethod(pv01AmountBase, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01ValueBase = Round(host.InvokeMethod(pv01AmountBase, "getAmount"), 2)
+
         End If
         
         If (pvValueCounter = 0) Then
             pv01ValueCounter = 0
         Else
+
             Dim pv01AmountCounter As Variant: Set pv01AmountCounter = host.InvokeMethod(pv01, "getAmountOrZero", ccy2)
-            pv01ValueCounter = host.InvokeMethod(pv01AmountCounter, "getAmount")
+            Set pv01AmountCounter = host.InvokeMethod(pv01AmountCounter, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01ValueCounter = Round(host.InvokeMethod(pv01AmountCounter, "getAmount"), 2)
+
+        End If
+        
+        Dim ceValueBase As Variant, ceValueCounter As Variant, fr As Double, ps As Double
+        
+        If (pvValueBase = 0) And (pvValueCounter = 0) Then
+        
+            If (ccy1 = dd.LocalCurrency) Then
+                ceValueBase = "-"
+            Else
+                ceValueBase = 0
+            End If
+            
+            If (ccy2 = dd.LocalCurrency) Then
+                ceValueCounter = "-"
+            Else
+                ceValueCounter = 0
+            End If
+
+            fr = 0
+            ps = 0
+
+        Else
+        
+            Dim ce As Variant: Set ce = host.InvokeMethod(pricer, "currencyExposure", trade, dd.RatesProvider)
+            
+            If (ccy1 = dd.LocalCurrency) Then
+                ceValueBase = "-"
+            Else
+                Dim ceAmountBase As Variant: Set ceAmountBase = host.InvokeMethod(ce, "getAmountOrZero", ccy1)
+                ceValueBase = Round(host.InvokeMethod(ceAmountBase, "getAmount"), 2)
+            End If
+
+            If (ccy2 = dd.LocalCurrency) Then
+                ceValueCounter = "-"
+            Else
+                Dim ceAmountCounter As Variant: Set ceAmountCounter = host.InvokeMethod(ce, "getAmountOrZero", ccy2)
+                ceValueCounter = Round(host.InvokeMethod(ceAmountCounter, "getAmount"), 2)
+            End If
+
+            Dim frObject As Variant: Set frObject = host.InvokeMethod(pricer, "forwardFxRate", trade, dd.RatesProvider)
+            
+            If (ccy1 = ccyBase) Then
+                fr = Round(host.InvokeMethod(frObject, "fxRate", ccy1, ccy2), 6)
+            Else
+                fr = Round(host.InvokeMethod(frObject, "fxRate", ccy2, ccy1), 6)
+            End If
+            
+            ps = Round(host.InvokeMethod(pricer, "parSpread", trade, dd.RatesProvider), 6)
+        
         End If
 
         If (ccy1 = ccyBase) Then
-            ws.Cells(i, cc - 1).Value = pvValueBase
-            ws.Cells(i + 1, cc - 1).Value = pvValueCounter
-            ws.Cells(i, cc).Value = pv01ValueBase
-            ws.Cells(i + 1, cc).Value = pv01ValueCounter
+            ws.Cells(i, cc - 4).Value2 = pvValueBase
+            ws.Cells(i + 1, cc - 4).Value2 = pvValueCounter
+            ws.Cells(i, cc - 3).Value2 = pv01ValueBase
+            ws.Cells(i + 1, cc - 3).Value2 = pv01ValueCounter
+            ws.Cells(i, cc - 2).Value2 = ceValueBase
+            ws.Cells(i + 1, cc - 2).Value2 = ceValueCounter
         Else
-            ws.Cells(i, cc - 1).Value = pvValueCounter
-            ws.Cells(i + 1, cc - 1).Value = pvValueBase
-            ws.Cells(i, cc).Value = pv01ValueCounter
-            ws.Cells(i + 1, cc).Value = pv01ValueBase
+            ws.Cells(i, cc - 4).Value2 = pvValueCounter
+            ws.Cells(i + 1, cc - 4).Value2 = pvValueBase
+            ws.Cells(i, cc - 3).Value2 = pv01ValueCounter
+            ws.Cells(i + 1, cc - 3).Value2 = pv01ValueBase
+            ws.Cells(i, cc - 2).Value2 = ceValueCounter
+            ws.Cells(i + 1, cc - 2).Value2 = ceValueBase
         End If
+
+        ws.Cells(i, cc - 1).Value2 = fr
+        ws.Cells(i, cc).Value2 = ps
 
         With Application.Union(wsCashFlows.Cells(2, cashFlowsOffset), wsCashFlows.Cells(2, cashFlowsOffset + 1), wsCashFlows.Cells(2, cashFlowsOffset + 2))
             .Merge
@@ -366,7 +455,7 @@ Public Sub PricingFxSingle()
                 End With
                 
                 With wsCashFlows.Cells(j + 3, cashFlowsOffset + 2)
-                    .Value2 = cfValues(j, 1)
+                    .Value2 = Round(cfValues(j, 1), 2)
                     .NumberFormat = "#,##0.00"
                     .Borders.Color = 0
                     .Borders.LineStyle = xlContinuous
@@ -422,13 +511,14 @@ Public Sub PricingFxSwap()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
 
-    Call dd.CleanCurrentTradesSheet(True, True)
+    Call dd.CleanCurrentTradesSheet(True, True, 5)
 
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
 
     Dim pricer As Variant: Set pricer = host.GetPropertyStaticFromName("com.opengamma.strata.measure.fx.FxSwapTradeCalculations", "DEFAULT")
-    
+    Dim pricerLegs As Variant: Set pricerLegs = host.GetPropertyStaticFromName("com.opengamma.strata.pricer.fx.DiscountingFxSingleProductPricer", "DEFAULT")
+
     Dim id As Long: id = 1
     Dim i As Long, j As Long
 
@@ -497,28 +587,102 @@ Public Sub PricingFxSwap()
         
         Dim pv As Variant: Set pv = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider)
         Dim pvAmountBase As Variant: Set pvAmountBase = host.InvokeMethod(pv, "getAmountOrZero", ccyBase)
+        Set pvAmountBase = host.InvokeMethod(pvAmountBase, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValueBase As Double: pvValueBase = Round(host.InvokeMethod(pvAmountBase, "getAmount"), 2)
         Dim pvAmountCounter As Variant: Set pvAmountCounter = host.InvokeMethod(pv, "getAmountOrZero", ccyCounter)
-        Dim pvValueBase As Double: pvValueBase = host.InvokeMethod(pvAmountBase, "getAmount")
-        Dim pvValueCounter As Double: pvValueCounter = host.InvokeMethod(pvAmountCounter, "getAmount")
+        Set pvAmountCounter = host.InvokeMethod(pvAmountCounter, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValueCounter As Double: pvValueCounter = Round(host.InvokeMethod(pvAmountCounter, "getAmount"), 2)
 
         Dim pv01 As Variant: Set pv01 = host.InvokeMethod(pricer, "pv01CalibratedSum", trade, dd.RatesProvider)
-        Dim pv01AmountBase As Variant: Set pv01AmountBase = host.InvokeMethod(pv01, "getAmountOrZero", ccyBase)
-        Dim pv01AmountCounter As Variant: Set pv01AmountCounter = host.InvokeMethod(pv01, "getAmountOrZero", ccyCounter)
-        Dim pv01ValueBase As Double: pv01ValueBase = host.InvokeMethod(pv01AmountBase, "getAmount")
-        Dim pv01ValueCounter As Double: pv01ValueCounter = host.InvokeMethod(pv01AmountCounter, "getAmount")
+        Dim pv01ValueBase As Double, pv01ValueCounter As Double
+        
+        Dim ce As Variant: Set ce = host.InvokeMethod(pricer, "currencyExposure", trade, dd.RatesProvider)
+        Dim ceValueBase As Variant, ceValueCounter As Variant
+
+        Set product = host.InvokeMethod(trade, "getProduct")
+        Dim frBase As Double, frCounter As Double
 
         If (pvValueBase = 0) Then
+            
             pv01ValueBase = 0
+            
+            If (ccyBase = dd.LocalCurrency) Then
+                ceValueBase = "-"
+            Else
+                ceValueBase = 0
+            End If
+            
+            frBase = 0
+        
+        Else
+        
+            Dim pv01AmountBase As Variant: Set pv01AmountBase = host.InvokeMethod(pv01, "getAmountOrZero", ccyBase)
+            Set pv01AmountBase = host.InvokeMethod(pv01AmountBase, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01ValueBase = Round(host.InvokeMethod(pv01AmountBase, "getAmount"), 2)
+            
+            If (ccyBase = dd.LocalCurrency) Then
+                ceValueBase = "-"
+            Else
+                Dim ceAmountBase As Variant: Set ceAmountBase = host.InvokeMethod(ce, "getAmountOrZero", ccyBase)
+                ceValueBase = Round(host.InvokeMethod(ceAmountBase, "getAmount"), 2)
+            End If
+            
+            Set legNear = host.InvokeMethod(product, "getNearLeg")
+            
+            Dim frObjectBase As Variant: Set frObjectBase = host.InvokeMethod(pricerLegs, "forwardFxRate", legNear, dd.RatesProvider)
+            frBase = Round(host.InvokeMethod(frObjectBase, "fxRate", ccyBase, ccyCounter), 6)
+            
         End If
         
         If (pvValueCounter = 0) Then
+
             pv01ValueCounter = 0
+            
+            If (ccyCounter = dd.LocalCurrency) Then
+                ceValueCounter = "-"
+            Else
+                ceValueCounter = 0
+            End If
+            
+            frCounter = 0
+
+        Else
+        
+            Dim pv01AmountCounter As Variant: Set pv01AmountCounter = host.InvokeMethod(pv01, "getAmountOrZero", ccyCounter)
+            Set pv01AmountCounter = host.InvokeMethod(pv01AmountCounter, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01ValueCounter = Round(host.InvokeMethod(pv01AmountCounter, "getAmount"), 2)
+        
+            If (ccyCounter = dd.LocalCurrency) Then
+                ceValueCounter = "-"
+            Else
+                Dim ceAmountCounter As Variant: Set ceAmountCounter = host.InvokeMethod(ce, "getAmountOrZero", ccyCounter)
+                ceValueCounter = Round(host.InvokeMethod(ceAmountCounter, "getAmount"), 2)
+            End If
+            
+            Set legFar = host.InvokeMethod(product, "getFarLeg")
+            
+            Dim frObjectCounter As Variant: Set frObjectCounter = host.InvokeMethod(pricerLegs, "forwardFxRate", legFar, dd.RatesProvider)
+            frCounter = Round(host.InvokeMethod(frObjectCounter, "fxRate", ccyCounter, ccyBase), 6)
+        
         End If
 
-        ws.Cells(i, cc - 1).Value = pvValueBase
-        ws.Cells(i + 1, cc - 1).Value = pvValueCounter
-        ws.Cells(i, cc).Value = pv01ValueBase
-        ws.Cells(i + 1, cc).Value = pv01ValueCounter
+        Dim ps As Double
+        
+        If (pvValueBase = 0) And (pvValueCounter = 0) Then
+            ps = 0
+        Else
+            ps = Round(host.InvokeMethod(pricer, "parSpread", trade, dd.RatesProvider), 6)
+        End If
+
+        ws.Cells(i, cc - 4).Value2 = pvValueBase
+        ws.Cells(i + 1, cc - 4).Value2 = pvValueCounter
+        ws.Cells(i, cc - 3).Value2 = pv01ValueBase
+        ws.Cells(i + 1, cc - 3).Value2 = pv01ValueCounter
+        ws.Cells(i, cc - 2).Value2 = ceValueBase
+        ws.Cells(i + 1, cc - 2).Value2 = ceValueCounter
+        ws.Cells(i, cc - 1).Value2 = frBase
+        ws.Cells(i + 1, cc - 1).Value2 = frCounter
+        ws.Cells(i, cc).Value2 = ps
         
         With Application.Union(wsCashFlows.Cells(2, cashFlowsOffset), wsCashFlows.Cells(2, cashFlowsOffset + 1), wsCashFlows.Cells(2, cashFlowsOffset + 2))
             .Merge
@@ -584,7 +748,7 @@ Public Sub PricingFxSwap()
                 End With
                 
                 With wsCashFlows.Cells(j + 3, cashFlowsOffset + 2)
-                    .Value2 = cfValues(j, 1)
+                    .Value2 = Round(cfValues(j, 1), 2)
                     .NumberFormat = "#,##0.00"
                     .Borders.Color = 0
                     .Borders.LineStyle = xlContinuous
@@ -640,7 +804,7 @@ Public Sub PricingBulletPayment()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     
-    Call dd.CleanCurrentTradesSheet(False, False)
+    Call dd.CleanCurrentTradesSheet(False, False, 3)
     
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
@@ -689,20 +853,43 @@ Public Sub PricingBulletPayment()
         Set trade = host.InvokeMethod(trade, "resolve", dd.ReferenceData)
 
         Dim pv As Variant: Set pv = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider)
-        Dim pvValue As Double: pvValue = host.InvokeMethod(pv, "getAmount")
+        Set pv = host.InvokeMethod(pv, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValue As Double: pvValue = Round(host.InvokeMethod(pv, "getAmount"), 2)
 
-        Dim pv01Value As Double
+        Dim pv01Value As Double, ceValue As Variant
         
         If (pvValue = 0) Then
+
             pv01Value = 0
+            
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+                ceValue = 0
+            End If
+
         Else
+
             Dim pv01 As Variant: Set pv01 = host.InvokeMethod(pricer, "pv01CalibratedSum", trade, dd.RatesProvider)
             Dim pv01Amount As Variant: Set pv01Amount = host.InvokeMethod(pv01, "getAmountOrZero", ccy)
-            pv01Value = host.InvokeMethod(pv01Amount, "getAmount")
+            Set pv01Amount = host.InvokeMethod(pv01Amount, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01Value = Round(host.InvokeMethod(pv01Amount, "getAmount"), 2)
+            
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+
+                Dim ce As Variant: Set ce = host.InvokeMethod(pricer, "currencyExposure", trade, dd.RatesProvider)
+                Dim ceAmount As Variant: Set ceAmount = host.InvokeMethod(ce, "getAmountOrZero", ccy)
+                ceValue = Round(host.InvokeMethod(ceAmount, "getAmount"), 2)
+                
+            End If
+
         End If
 
-        ws.Cells(i, cc - 1).Value = pvValue
-        ws.Cells(i, cc).Value = pv01Value
+        ws.Cells(i, cc - 2).Value2 = pvValue
+        ws.Cells(i, cc - 1).Value2 = pv01Value
+        ws.Cells(i, cc).Value2 = ceValue
 
         With Application.Union(wsCashFlows.Cells(2, cashFlowsOffset), wsCashFlows.Cells(2, cashFlowsOffset + 1), wsCashFlows.Cells(2, cashFlowsOffset + 2))
             .Merge
@@ -745,7 +932,7 @@ Public Sub PricingBulletPayment()
             End With
             
             With wsCashFlows.Cells(3, cashFlowsOffset + 2)
-                .Value2 = host.InvokeMethod(pPaymentAmount, "getAmount")
+                .Value2 = Round(host.InvokeMethod(pPaymentAmount, "getAmount"), 2)
                 .NumberFormat = "#,##0.00"
                 .Borders.Color = 0
                 .Borders.LineStyle = xlContinuous
@@ -798,7 +985,7 @@ Public Sub PricingTermDeposit()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     
-    Call dd.CleanCurrentTradesSheet(False, False)
+    Call dd.CleanCurrentTradesSheet(False, False, 5)
     
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
@@ -826,7 +1013,7 @@ Public Sub PricingTermDeposit()
  
         Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
         Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
-        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, tradeCalendar, bda)
+        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", dd.DaysOffset, tradeCalendar, bda)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
  
         Dim conventionBuilder As Variant: Set conventionBuilder = host.InvokeMethodStaticFromName("com.opengamma.strata.product.deposit.type.ImmutableTermDepositConvention", "builder")
@@ -848,20 +1035,51 @@ Public Sub PricingTermDeposit()
         Set trade = host.InvokeMethod(trade, "resolve", dd.ReferenceData)
 
         Dim pv As Variant: Set pv = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider)
-        Dim pvValue As Double: pvValue = host.InvokeMethod(pv, "getAmount")
+        Set pv = host.InvokeMethod(pv, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValue As Double: pvValue = Round(host.InvokeMethod(pv, "getAmount"), 2)
 
-        Dim pv01Value As Double
+        Dim pv01Value As Double, ceValue As Variant, pr As Double, ps As Double
         
         If (pvValue = 0) Then
+
             pv01Value = 0
+            
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+                ceValue = 0
+            End If
+
+            pr = 0
+            ps = 0
+
         Else
+
             Dim pv01 As Variant: Set pv01 = host.InvokeMethod(pricer, "pv01CalibratedSum", trade, dd.RatesProvider)
             Dim pv01Amount As Variant: Set pv01Amount = host.InvokeMethod(pv01, "getAmountOrZero", ccy)
-            pv01Value = host.InvokeMethod(pv01Amount, "getAmount")
+            Set pv01Amount = host.InvokeMethod(pv01Amount, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01Value = Round(host.InvokeMethod(pv01Amount, "getAmount"), 2)
+            
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+
+                Dim ce As Variant: Set ce = host.InvokeMethod(pricer, "currencyExposure", trade, dd.RatesProvider)
+                Dim ceAmount As Variant: Set ceAmount = host.InvokeMethod(ce, "getAmountOrZero", ccy)
+                ceValue = Round(host.InvokeMethod(ceAmount, "getAmount"), 2)
+                
+            End If
+
+            pr = Round(host.InvokeMethod(pricer, "parRate", trade, dd.RatesProvider), 6)
+            ps = Round(host.InvokeMethod(pricer, "parSpread", trade, dd.RatesProvider), 6)
+
         End If
 
-        ws.Cells(i, cc - 1).Value = pvValue
-        ws.Cells(i, cc).Value = pv01Value
+        ws.Cells(i, cc - 4).Value2 = pvValue
+        ws.Cells(i, cc - 3).Value2 = pv01Value
+        ws.Cells(i, cc - 2).Value2 = ceValue
+        ws.Cells(i, cc - 1).Value2 = pr
+        ws.Cells(i, cc).Value2 = ps
 
         With Application.Union(wsCashFlows.Cells(2, cashFlowsOffset), wsCashFlows.Cells(2, cashFlowsOffset + 1), wsCashFlows.Cells(2, cashFlowsOffset + 2))
             .Merge
@@ -884,8 +1102,8 @@ Public Sub PricingTermDeposit()
             Dim pStartDate As Variant: Set pStartDate = host.InvokeMethod(product, "getStartDate")
             Dim pEndDate As Variant: Set pEndDate = host.InvokeMethod(product, "getEndDate")
 
-            Dim cfAmountStart As Double: cfAmountStart = -host.InvokeMethod(product, "getNotional")
-            Dim cfAmountEnd As Double: cfAmountEnd = host.InvokeMethod(product, "getNotional") + host.InvokeMethod(product, "getInterest")
+            Dim cfAmountStart As Double: cfAmountStart = Round(-host.InvokeMethod(product, "getNotional"), 2)
+            Dim cfAmountEnd As Double: cfAmountEnd = Round(host.InvokeMethod(product, "getNotional") + host.InvokeMethod(product, "getInterest"), 2)
 
             Dim cfValues() As Variant: ReDim cfValues(1, 2)
             cfValues(0, 0) = host.InvokeMethod(pStartDate, "format", dd.DateFormatter)
@@ -971,7 +1189,7 @@ Public Sub PricingCrossCurrencySwap()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
 
-    Call dd.CleanCurrentTradesSheet(True, True)
+    Call dd.CleanCurrentTradesSheet(True, True, 5)
 
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
@@ -1026,7 +1244,7 @@ Public Sub PricingCrossCurrencySwap()
 
         Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
         Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
-        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, tradeCalendar, bda)
+        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", dd.DaysOffset, tradeCalendar, bda)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim direction As Variant
@@ -1097,38 +1315,94 @@ Public Sub PricingCrossCurrencySwap()
 
         Dim pv As Variant: Set pv = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider)
         Dim pvAmountFlat As Variant: Set pvAmountFlat = host.InvokeMethod(pv, "getAmountOrZero", ccyFlat)
-        Dim pvValueFlat As Double: pvValueFlat = host.InvokeMethod(pvAmountFlat, "getAmount")
+        Set pvAmountFlat = host.InvokeMethod(pvAmountFlat, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValueFlat As Double: pvValueFlat = Round(host.InvokeMethod(pvAmountFlat, "getAmount"), 2)
         Dim pvAmountSpread As Variant: Set pvAmountSpread = host.InvokeMethod(pv, "getAmountOrZero", ccySpread)
-        Dim pvValueSpread As Double: pvValueSpread = host.InvokeMethod(pvAmountSpread, "getAmount")
-        
+        Set pvAmountSpread = host.InvokeMethod(pvAmountSpread, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValueSpread As Double: pvValueSpread = Round(host.InvokeMethod(pvAmountSpread, "getAmount"), 2)
+
         Dim pv01 As Variant: Set pv01 = host.InvokeMethod(pricer, "pv01CalibratedSum", trade, dd.RatesProvider)
         Dim pv01ValueFlat As Double, pv01ValueSpread As Double
         
+        Dim ce As Variant: Set ce = host.InvokeMethod(pricer, "currencyExposure", trade, dd.RatesProvider)
+        Dim ceValueFlat As Variant, ceValueSpread As Variant
+        
         If (pvValueFlat = 0) Then
+
             pv01ValueFlat = 0
+            
+            If (ccyFlat = dd.LocalCurrency) Then
+                ceValueFlat = "-"
+            Else
+                ceValueFlat = 0
+            End If
+
         Else
+
             Dim pv01AmountFlat As Variant: Set pv01AmountFlat = host.InvokeMethod(pv01, "getAmountOrZero", ccyFlat)
-            pv01ValueFlat = host.InvokeMethod(pv01AmountFlat, "getAmount")
+            Set pv01AmountFlat = host.InvokeMethod(pv01AmountFlat, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01ValueFlat = Round(host.InvokeMethod(pv01AmountFlat, "getAmount"), 2)
+            
+            If (ccyFlat = dd.LocalCurrency) Then
+                ceValueFlat = "-"
+            Else
+                Dim ceAmountFlat As Variant: Set ceAmountFlat = host.InvokeMethod(ce, "getAmountOrZero", ccyFlat)
+                ceValueFlat = Round(host.InvokeMethod(ceAmountFlat, "getAmount"), 2)
+            End If
+
         End If
         
         If (pvValueSpread = 0) Then
+
             pv01ValueSpread = 0
+
+            If (ccySpread = dd.LocalCurrency) Then
+                ceValueSpread = "-"
+            Else
+                ceValueSpread = 0
+            End If
+
         Else
+
             Dim pv01AmountSpread As Variant: Set pv01AmountSpread = host.InvokeMethod(pv01, "getAmountOrZero", ccySpread)
-            pv01ValueSpread = host.InvokeMethod(pv01AmountSpread, "getAmount")
+            Set pv01AmountSpread = host.InvokeMethod(pv01AmountSpread, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01ValueSpread = Round(host.InvokeMethod(pv01AmountSpread, "getAmount"), 2)
+            
+            If (ccySpread = dd.LocalCurrency) Then
+                ceValueSpread = "-"
+            Else
+                Dim ceAmountSpread As Variant: Set ceAmountSpread = host.InvokeMethod(ce, "getAmountOrZero", ccySpread)
+                ceValueSpread = Round(host.InvokeMethod(ceAmountSpread, "getAmount"), 2)
+            End If
+
+        End If
+
+        Dim ps As Double
+        
+        If (pvValueFlat = 0) And (pvValueSpread = 0) Then
+            ps = 0
+        Else
+            ps = Round(host.InvokeMethod(pricer, "parSpread", trade, dd.RatesProvider), 6)
+        End If
+
+        If (tradeType = "FLAT/SPREAD") Then
+            ws.Cells(i, cc - 4).Value2 = pvValueFlat
+            ws.Cells(i + 1, cc - 4).Value2 = pvValueSpread
+            ws.Cells(i, cc - 3).Value2 = pv01ValueFlat
+            ws.Cells(i + 1, cc - 3).Value2 = pv01ValueSpread
+            ws.Cells(i, cc - 2).Value2 = ceValueFlat
+            ws.Cells(i + 1, cc - 2).Value2 = ceValueSpread
+        Else
+            ws.Cells(i, cc - 4).Value2 = pvValueSpread
+            ws.Cells(i + 1, cc - 4).Value2 = pvValueFlat
+            ws.Cells(i, cc - 3).Value2 = pv01ValueSpread
+            ws.Cells(i + 1, cc - 3).Value2 = pv01ValueFlat
+            ws.Cells(i, cc - 2).Value2 = ceValueSpread
+            ws.Cells(i + 1, cc - 2).Value2 = ceValueFlat
         End If
         
-        If (tradeType = "FLAT/SPREAD") Then
-            ws.Cells(i, cc - 1).Value = pvValueFlat
-            ws.Cells(i + 1, cc - 1).Value = pvValueSpread
-            ws.Cells(i, cc).Value = pv01ValueFlat
-            ws.Cells(i + 1, cc).Value = pv01ValueSpread
-        Else
-            ws.Cells(i, cc - 1).Value = pvValueSpread
-            ws.Cells(i + 1, cc - 1).Value = pvValueFlat
-            ws.Cells(i, cc).Value = pv01ValueSpread
-            ws.Cells(i + 1, cc).Value = pv01ValueFlat
-        End If
+        ws.Cells(i, cc - 1).Value2 = "-"
+        ws.Cells(i, cc).Value2 = ps
 
         With Application.Union(wsCashFlows.Cells(2, cashFlowsOffset), wsCashFlows.Cells(2, cashFlowsOffset + 1), wsCashFlows.Cells(2, cashFlowsOffset + 2))
             .Merge
@@ -1177,7 +1451,7 @@ Public Sub PricingCrossCurrencySwap()
                 End With
                 
                 With wsCashFlows.Cells(j + 3, cashFlowsOffset + 2)
-                    .Value2 = host.InvokeMethod(cashFlowAmount, "getAmount")
+                    .Value2 = Round(host.InvokeMethod(cashFlowAmount, "getAmount"), 2)
                     .NumberFormat = "#,##0.00"
                     .Borders.Color = 0
                     .Borders.LineStyle = xlContinuous
@@ -1219,7 +1493,7 @@ ErrorHandler:
 
 End Sub
 
-Public Sub PricingFra()
+Public Sub PricingForwardRateAgreement()
     
     On Error GoTo ErrorHandler
 
@@ -1233,7 +1507,7 @@ Public Sub PricingFra()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
 
-    Call dd.CleanCurrentTradesSheet(False, False)
+    Call dd.CleanCurrentTradesSheet(False, False, 5)
 
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
@@ -1281,20 +1555,51 @@ Public Sub PricingFra()
         Dim ccy As Variant: Set ccy = host.InvokeMethod(product, "getCurrency")
 
         Dim pv As Variant: Set pv = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider)
-        Dim pvValue As Double: pvValue = host.InvokeMethod(pv, "getAmount")
+        Set pv = host.InvokeMethod(pv, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValue As Double: pvValue = Round(host.InvokeMethod(pv, "getAmount"), 2)
 
-        Dim pv01Value As Double
-
+        Dim pv01Value As Double, pr As Double, ps As Double, ceValue As Variant
+        
         If (pvValue = 0) Then
+
             pv01Value = 0
+
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+                ceValue = 0
+            End If
+            
+            pr = 0
+            ps = 0
+
         Else
+
             Dim pv01 As Variant: Set pv01 = host.InvokeMethod(pricer, "pv01CalibratedSum", trade, dd.RatesProvider)
             Dim pv01Amount As Variant: Set pv01Amount = host.InvokeMethod(pv01, "getAmountOrZero", ccy)
-            pv01Value = host.InvokeMethod(pv01Amount, "getAmount")
+            Set pv01Amount = host.InvokeMethod(pv01Amount, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01Value = Round(host.InvokeMethod(pv01Amount, "getAmount"), 2)
+            
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+
+                Dim ce As Variant: Set ce = host.InvokeMethod(pricer, "currencyExposure", trade, dd.RatesProvider)
+                Dim ceAmount As Variant: Set ceAmount = host.InvokeMethod(ce, "getAmountOrZero", ccy)
+                ceValue = Round(host.InvokeMethod(ceAmount, "getAmount"), 2)
+                
+            End If
+            
+            pr = Round(host.InvokeMethod(pricer, "parRate", trade, dd.RatesProvider), 6)
+            ps = Round(host.InvokeMethod(pricer, "parSpread", trade, dd.RatesProvider), 6)
+
         End If
 
-        ws.Cells(i, cc - 1).Value = pvValue
-        ws.Cells(i, cc).Value = pv01Value
+        ws.Cells(i, cc - 4).Value2 = pvValue
+        ws.Cells(i, cc - 3).Value2 = pv01Value
+        ws.Cells(i, cc - 2).Value2 = ceValue
+        ws.Cells(i, cc - 1).Value2 = pr
+        ws.Cells(i, cc).Value2 = ps
 
         With Application.Union(wsCashFlows.Cells(2, cashFlowsOffset), wsCashFlows.Cells(2, cashFlowsOffset + 1), wsCashFlows.Cells(2, cashFlowsOffset + 2))
             .Merge
@@ -1335,7 +1640,7 @@ Public Sub PricingFra()
             End With
             
             With wsCashFlows.Cells(3, cashFlowsOffset + 2)
-                .Value2 = pvValue
+                .Value2 = ceValue
                 .NumberFormat = "#,##0.00"
                 .Borders.Color = 0
                 .Borders.LineStyle = xlContinuous
@@ -1388,7 +1693,7 @@ Public Sub PricingInterestRateFuture()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     
-    Call dd.CleanCurrentTradesSheet(False, False)
+    Call dd.CleanCurrentTradesSheet(False, False, 3)
     
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
@@ -1472,7 +1777,7 @@ Public Sub PricingInterestRateFuture()
             Dim endDateO As Variant: Set endDateO = host.InvokeMethod(dateSequence, "dateMatching", maturity)
             Set endDateO = host.InvokeMethod(bda, "adjust", endDateO, dd.ReferenceData)
             
-            Dim daO As Variant: Set daO = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -2, tradeCalendar, bda)
+            Dim daO As Variant: Set daO = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", -dd.DaysOffset, tradeCalendar, bda)
             Dim lastTradeDateO As Variant: Set lastTradeDateO = endDateO
             Set lastTradeDateO = host.InvokeMethod(daO, "adjust", lastTradeDateO, dd.ReferenceData)
 
@@ -1519,27 +1824,45 @@ Public Sub PricingInterestRateFuture()
         
         Dim reachedMaturity As Variant: reachedMaturity = host.InvokeMethod(endDate, "isBefore", vd)
         
-        Dim pvValue As Double, pv01Value As Double
+        Dim pvValue As Double, pv01Value As Double, ceValue As Variant
 
         If reachedMaturity Then
+
             pvValue = 0
             pv01Value = 0
+            
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+                ceValue = 0
+            End If
+
         Else
         
-            Dim pv As Variant: Set pv = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider, lastPrice)
-            pvValue = host.InvokeMethod(pv, "getAmount")
+            Dim pvAmount As Variant: Set pvAmount = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider, lastPrice)
+
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+                ceValue = Round(host.InvokeMethod(pvAmount, "getAmount"), 2)
+            End If
+
+            Set pvAmount = host.InvokeMethod(pvAmount, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pvValue = Round(host.InvokeMethod(pvAmount, "getAmount"), 2)
 
             Dim pvs As Variant: Set pvs = host.InvokeMethod(pricer, "presentValueSensitivity", trade, dd.RatesProvider)
             Dim pvsParam As Variant: Set pvsParam = host.InvokeMethod(dd.RatesProvider, "parameterSensitivity", pvs)
             Dim pvsParamTotal As Variant: Set pvsParamTotal = host.InvokeMethod(pvsParam, "total")
             Dim pv01 As Variant: Set pv01 = host.InvokeMethod(pvsParamTotal, "multipliedBy", 0.0001)
             Dim pv01Amount As Variant: Set pv01Amount = host.InvokeMethod(pv01, "getAmountOrZero", ccy)
-            pv01Value = host.InvokeMethod(pv01Amount, "getAmount")
+            Set pv01Amount = host.InvokeMethod(pv01Amount, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01Value = Round(host.InvokeMethod(pv01Amount, "getAmount"), 2)
 
         End If
         
-        ws.Cells(i, cc - 1).Value = pvValue
-        ws.Cells(i, cc).Value = pv01Value
+        ws.Cells(i, cc - 2).Value2 = pvValue
+        ws.Cells(i, cc - 1).Value2 = pv01Value
+        ws.Cells(i, cc).Value2 = ceValue
 
         With Application.Union(wsCashFlows.Cells(2, cashFlowsOffset), wsCashFlows.Cells(2, cashFlowsOffset + 1), wsCashFlows.Cells(2, cashFlowsOffset + 2))
             .Merge
@@ -1577,7 +1900,7 @@ Public Sub PricingInterestRateFuture()
             End With
             
             With wsCashFlows.Cells(3, cashFlowsOffset + 2)
-                .Value2 = pvValue
+                .Value2 = ceValue
                 .NumberFormat = "#,##0.00"
                 .Borders.Color = 0
                 .Borders.LineStyle = xlContinuous
@@ -1630,7 +1953,7 @@ Public Sub PricingInterestRateSwap()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
 
-    Call dd.CleanCurrentTradesSheet(True, False)
+    Call dd.CleanCurrentTradesSheet(True, False, 5)
 
     Dim wsCashFlows As Worksheet: Set wsCashFlows = dd.PrepareCashFlowsSheet(ws)
     Dim cashFlowsOffset As Long: cashFlowsOffset = 1
@@ -1681,7 +2004,7 @@ Public Sub PricingInterestRateSwap()
 
         Dim tradeCalendar As Variant: Set tradeCalendar = host.InvokeMethod(dd.Calendar, "combinedWith", calendarCpty)
         Dim bda As Variant: Set bda = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayAdjustment", "of", dd.BusinessDays, tradeCalendar)
-        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", 2, tradeCalendar, bda)
+        Dim da As Variant: Set da = host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.DaysAdjustment", "ofBusinessDays", dd.DaysOffset, tradeCalendar, bda)
         Set tradeDate = host.InvokeMethod(bda, "adjust", tradeDate, dd.ReferenceData)
 
         Dim ccy As Variant
@@ -1938,20 +2261,56 @@ Public Sub PricingInterestRateSwap()
 
         Dim pv As Variant: Set pv = host.InvokeMethod(pricer, "presentValue", trade, dd.RatesProvider)
         Dim pvAmount As Variant: Set pvAmount = host.InvokeMethod(pv, "getAmountOrZero", ccy)
-        Dim pvValue As Double: pvValue = host.InvokeMethod(pvAmount, "getAmount")
+        Set pvAmount = host.InvokeMethod(pvAmount, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+        Dim pvValue As Double: pvValue = Round(host.InvokeMethod(pvAmount, "getAmount"), 2)
 
-        Dim pv01Value As Double
+        Dim pv01Value As Double, ceValue As Variant, pr As Variant, ps As Double
         
         If (pvValue = 0) Then
+
             pv01Value = 0
+
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+                ceValue = 0
+            End If
+
+            pr = 0
+            ps = 0
+
         Else
+
             Dim pv01 As Variant: Set pv01 = host.InvokeMethod(pricer, "pv01CalibratedSum", trade, dd.RatesProvider)
             Dim pv01Amount As Variant: Set pv01Amount = host.InvokeMethod(pv01, "getAmountOrZero", ccy)
-            pv01Value = host.InvokeMethod(pv01Amount, "getAmount")
+            Set pv01Amount = host.InvokeMethod(pv01Amount, "convertedTo", dd.LocalCurrency, dd.RatesProvider)
+            pv01Value = Round(host.InvokeMethod(pv01Amount, "getAmount"), 2)
+            
+            If (ccy = dd.LocalCurrency) Then
+                ceValue = "-"
+            Else
+
+                Dim ce As Variant: Set ce = host.InvokeMethod(pricer, "currencyExposure", trade, dd.RatesProvider)
+                Dim ceAmount As Variant: Set ceAmount = host.InvokeMethod(ce, "getAmountOrZero", ccy)
+                ceValue = Round(host.InvokeMethod(ceAmount, "getAmount"), 2)
+
+                If (legTypePay = "FIXED") Or (legTypeReceive = "FIXED") Then
+                    pr = Round(host.InvokeMethod(pricer, "parRate", trade, dd.RatesProvider), 6)
+                Else
+                    pr = "-"
+                End If
+
+                ps = Round(host.InvokeMethod(pricer, "parSpread", trade, dd.RatesProvider), 6)
+                
+            End If
+
         End If
 
-        ws.Cells(i, cc - 1).Value = pvValue
-        ws.Cells(i, cc).Value = pv01Value
+        ws.Cells(i, cc - 4).Value2 = pvValue
+        ws.Cells(i, cc - 3).Value2 = pv01Value
+        ws.Cells(i, cc - 2).Value2 = ceValue
+        ws.Cells(i, cc - 1).Value2 = pr
+        ws.Cells(i, cc).Value2 = ps
 
         With Application.Union(wsCashFlows.Cells(2, cashFlowsOffset), wsCashFlows.Cells(2, cashFlowsOffset + 1), wsCashFlows.Cells(2, cashFlowsOffset + 2))
             .Merge
@@ -2000,7 +2359,7 @@ Public Sub PricingInterestRateSwap()
                 End With
                 
                 With wsCashFlows.Cells(j + 3, cashFlowsOffset + 2)
-                    .Value2 = host.InvokeMethod(cashFlowAmount, "getAmount")
+                    .Value2 = Round(host.InvokeMethod(cashFlowAmount, "getAmount"), 2)
                     .NumberFormat = "#,##0.00"
                     .Borders.Color = 0
                     .Borders.LineStyle = xlContinuous

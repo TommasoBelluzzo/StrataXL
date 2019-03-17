@@ -1045,33 +1045,33 @@ End Function
 ' METHOD
 ' Gets the value of the given .NET static field, defined on the given type.
 
-Public Function GetFieldStaticByName(ByVal fieldOwner As String, ByVal fieldName As String) As Variant
+Public Function GetFieldStaticFromName(ByVal fieldOwner As String, ByVal fieldName As String) As Variant
 
     If Not m_Initialized Then
-        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticByName", "This instance has not been initialized yet.")
+        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticFromName", "This instance has not been initialized yet.")
     End If
 
     fieldOwner = Trim$(fieldOwner)
 
     If (fieldOwner = vbNullString) Then
-        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticByName", "The ""fieldOwner"" parameter is null or empty.")
+        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticFromName", "The ""fieldOwner"" parameter is null or empty.")
     End If
     
     Dim fieldOwnerType As mscorlib.Type: Set fieldOwnerType = ResolveType(fieldOwner)
     
     If fieldOwnerType Is Nothing Then
-        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticByName", "The type specified by the ""fieldOwner"" parameter could not be resolved.")
+        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticFromName", "The type specified by the ""fieldOwner"" parameter could not be resolved.")
     End If
     
     fieldName = Trim$(fieldName)
 
     If (fieldName = vbNullString) Then
-        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticByName", "The ""fieldName"" parameter is null or empty.")
+        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticFromName", "The ""fieldName"" parameter is null or empty.")
     End If
 
     Dim hr As Long: hr = VariantCopy _
     ( _
-        GetFieldStaticByName, m_ManagedHelper.GetField _
+        GetFieldStaticFromName, m_ManagedHelper.GetField _
         ( _
             fieldOwnerType, _
             fieldName _
@@ -1087,25 +1087,25 @@ End Function
 ' METHOD
 ' Gets the value of the given .NET static field, defined on the given type.
 
-Public Function GetFieldStaticByType(ByVal fieldOwnerType As mscorlib.Type, ByVal fieldName As String) As Variant
+Public Function GetFieldStaticFromType(ByVal fieldOwnerType As mscorlib.Type, ByVal fieldName As String) As Variant
 
     If Not m_Initialized Then
-        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticByType", "This instance has not been initialized yet.")
+        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticFromType", "This instance has not been initialized yet.")
     End If
 
     If fieldOwnerType Is Nothing Then
-        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticByType", "The ""fieldOwnerType"" parameter is null.")
+        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticFromType", "The ""fieldOwnerType"" parameter is null.")
     End If
     
     fieldName = Trim$(fieldName)
 
     If (fieldName = vbNullString) Then
-        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticByType", "The ""fieldName"" parameter is null or empty.")
+        Call Err.Raise(vbObjectError + 1, "RuntimeHost.GetFieldStaticFromType", "The ""fieldName"" parameter is null or empty.")
     End If
 
     Dim hr As Long: hr = VariantCopy _
     ( _
-        GetFieldStaticByType, m_ManagedHelper.GetField _
+        GetFieldStaticFromType, m_ManagedHelper.GetField _
         ( _
             fieldOwnerType, _
             fieldName _

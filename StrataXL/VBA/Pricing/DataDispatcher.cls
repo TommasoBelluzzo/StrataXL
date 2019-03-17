@@ -21,10 +21,11 @@ Option Explicit
 
 Dim m_BusinessDays As Variant
 Dim m_Calendar As Variant
-Dim m_Currency As Variant
 Dim m_DateFormatter As Variant
+Dim m_DaysOffset As Long
 Dim m_Host As RuntimeHost
 Dim m_Initialized As Boolean
+Dim m_LocalCurrency As Variant
 Dim m_RatesProvider As Variant
 Dim m_ReferenceData As Variant
 Dim m_ValuationDate As Variant
@@ -48,7 +49,7 @@ Private Sub Class_Terminate()
 End Sub
 
 ' PROPERTY
-' Gets the instance of the BusinessDaysConvention representing the reference business days convention.
+' Gets the instance of BusinessDaysConvention representing the business days convention.
 
 Property Get BusinessDays() As Variant
 
@@ -57,7 +58,7 @@ Property Get BusinessDays() As Variant
 End Property
 
 ' PROPERTY
-' Gets the instance of the HolidayCalendarId representing the reference calendar.
+' Gets the instance of HolidayCalendarId representing the local calendar.
 
 Property Get Calendar() As Variant
 
@@ -66,7 +67,7 @@ Property Get Calendar() As Variant
 End Property
 
 ' PROPERTY
-' Gets the instance of the DateFormatter representing the reference date formatter.
+' Gets the instance of DateFormatter representing the date formatter.
 
 Property Get DateFormatter() As Variant
 
@@ -75,7 +76,25 @@ Property Get DateFormatter() As Variant
 End Property
 
 ' PROPERTY
-' Gets the instance of the RatesProvider representing the reference financial data provider.
+' Gets the valuation date.
+
+Property Get DaysOffset() As Long
+
+    DaysOffset = m_DaysOffset
+
+End Property
+
+' PROPERTY
+' Gets the instance of the Currency representing the local currency.
+
+Property Get LocalCurrency() As Variant
+
+    Set LocalCurrency = m_LocalCurrency
+
+End Property
+
+' PROPERTY
+' Gets the instance of RatesProvider representing the financial data provider.
 
 Property Get RatesProvider() As Variant
 
@@ -84,7 +103,7 @@ Property Get RatesProvider() As Variant
 End Property
 
 ' PROPERTY
-' Gets the instance of the ReferenceData representing the reference financial data.
+' Gets the instance of ReferenceData representing the reference financial data.
 
 Property Get ReferenceData() As Variant
 
@@ -93,7 +112,7 @@ Property Get ReferenceData() As Variant
 End Property
 
 ' PROPERTY
-' Gets the instance of the LocalData representing the reference valuation date.
+' Gets the instance of LocalData representing the valuation date.
 
 Property Get ValuationDate() As Variant
 
@@ -366,9 +385,10 @@ Private Sub PerformCleanup()
 
     Set m_BusinessDays = Nothing
     Set m_Calendar = Nothing
-    Set m_Currency = Nothing
     Set m_DateFormatter = Nothing
+    m_DaysOffset = 0
     Set m_Host = Nothing
+    Set m_LocalCurrency = Nothing
     Set m_RatesProvider = Nothing
     Set m_ReferenceData = Nothing
     Set m_ValuationDate = Nothing
@@ -382,7 +402,7 @@ End Sub
 ' METHOD
 ' Cleans the previous results from the current trades sheet.
 
-Public Sub CleanCurrentTradesSheet(ByVal doubleHeader As Integer, ByVal doubleRows As Boolean)
+Public Sub CleanCurrentTradesSheet(ByVal doubleHeader As Integer, ByVal doubleRows As Boolean, ByVal resultColumns As Long)
 
     If Not m_Initialized Then
         Call Err.Raise(vbObjectError + 1, "DataDispatcher.CleanCurrentTradesSheet", "This instance has not been initialized yet.")
@@ -411,12 +431,23 @@ Public Sub CleanCurrentTradesSheet(ByVal doubleHeader As Integer, ByVal doubleRo
     End If
     
     Dim cc As Long: cc = m_Worksheet.UsedRange.Columns.Count
+    Dim co As Long: co = resultColumns - 1
     Dim i As Long, j As Long
-        
+
     For i = headers + 1 To rc
-        For j = cc - 1 To cc
-            m_Worksheet.Cells(i, j).ClearContents
+
+        For j = cc - co To cc
+        
+            Dim r As Range: Set r = m_Worksheet.Cells(i, j)
+            
+            If r.MergeCells Then
+                r.MergeArea.ClearContents
+            Else
+                r.ClearContents
+            End If
+            
         Next j
+
     Next i
 
 End Sub
@@ -1105,7 +1136,7 @@ Public Function GetPeriod(ByVal wsCell As String, Optional ByVal restriction As 
     End If
     
     If (period = "-") Then
-        Set GetPeriod = m_Host.GetFieldStaticByName("java.time.Period", "ZERO")
+        Set GetPeriod = m_Host.GetFieldStaticFromName("java.time.Period", "ZERO")
         Exit Function
     End If
     
@@ -1407,6 +1438,7 @@ Public Sub Initialize(ByVal host As RuntimeHost, ByVal ws As Worksheet)
     Dim vd As Date: vd = form.ReferenceValuationDate
     Dim bdc As String: bdc = form.ReferenceBusinessDays
     Dim ccy As Variant: ccy = form.ReferenceCurrency
+    Dim offset As Long: offset = form.ReferenceDaysOffset
     Call Unload(form)
 
     Set m_Host = host
@@ -1418,20 +1450,13 @@ Public Sub Initialize(ByVal host As RuntimeHost, ByVal ws As Worksheet)
     Call ParseWorksheetCurves(wsCurves, ratesProviderBuilder)
     Call ParseWorksheetExchange(wsExchange, ratesProviderBuilder)
     Set m_RatesProvider = m_Host.InvokeMethod(ratesProviderBuilder, "build")
-    
-    Dim cbase As Variant:  Set cbase = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", "USD")
-    Dim ccou As Variant:  Set ccou = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", "EUR")
-    Dim cp As Variant: Set cp = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.CurrencyPair", "of", cbase, ccou)
-    Dim fxfr As Variant: Set fxfr = m_Host.InvokeMethod(m_RatesProvider, "fxForwardRates", cp)
-    Dim p9m As Variant: Set p9m = m_Host.InvokeMethodStaticFromName("java.time.Period", "ofMonths", 9)
-    Dim vd9m As Variant: Set vd9m = m_Host.InvokeMethod(vdo, "plus", p9m)
-    Dim r9m As Variant: r9m = m_Host.InvokeMethod(fxfr, "rate", cbase, vd9m)
 
-    Set m_Currency = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", ccy)
+    Set m_LocalCurrency = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.currency.Currency", "of", ccy)
     Set m_BusinessDays = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.BusinessDayConvention", "of", Replace$(bdc, " ", ""))
-    Set m_Calendar = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", m_Currency)
-    Set m_ReferenceData = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.ReferenceData", "standard")
+    Set m_Calendar = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.date.HolidayCalendarId", "defaultByCurrency", m_LocalCurrency)
     Set m_DateFormatter = m_Host.InvokeMethodStaticFromName("java.time.format.DateTimeFormatter", "ofPattern", "dd/MM/yyyy")
+    m_DaysOffset = offset
+    Set m_ReferenceData = m_Host.InvokeMethodStaticFromName("com.opengamma.strata.basics.ReferenceData", "standard")
     Set m_ValuationDate = vdo
     m_ValuationDatePlain = vd
     
