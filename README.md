@@ -8,11 +8,12 @@ StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.i
 
 ## Requirements
 
- * StrataXL can be used on every machine equipped with Windows 7 or greater, provided it is capable of fulfilling the requirements listed below. It is platform-agnostic, therefore both x86 and x64 environments are supported.
+StrataXL can be used on every machine equipped with Windows 7 or greater, provided it is capable of fulfilling the requirements listed below. It is platform-agnostic, therefore both x86 and x64 environments are supported.
+
  * The latest release of OpenGamma Strata requires the Java SE Runtime Environment 8u40 or a later release.
  * Any version of the .NET Framework running the .NET CLR v4.0.30319 is necessary; the minimum required version is 4.0.
  * Any version of Excel supporting VBA 7.0 or greater is necessary; the minimum required version is Excel 2010.
- * The auxiliary projects have been developed under Visual Studio 2017.
+ * The auxiliary projects have been developed under Visual Studio 2017, but they can be downgraded or upgraded without problems.
 
 ## Installation & Upgrade
 
