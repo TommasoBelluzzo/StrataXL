@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ReferenceData 
    Caption         =   "Reference Data"
-   ClientHeight    =   2895
+   ClientHeight    =   2775
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3975

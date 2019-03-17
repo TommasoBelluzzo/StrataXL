@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ReferenceDataCrossCurrency 
    Caption         =   "Reference Data"
-   ClientHeight    =   3255
+   ClientHeight    =   3735
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3975
@@ -81,6 +81,7 @@ Dim m_ReferenceBusinessDays As String
 Dim m_ReferenceCurrencyForeign As String
 Dim m_ReferenceCurrencyLocal As String
 Dim m_ReferenceDaysCount As String
+Dim m_ReferenceDaysOffset As Long
 Dim m_ReferenceExchangeRate As Double
 Dim m_ReferenceValuationDate As Date
 
@@ -108,6 +109,15 @@ End Property
 Property Get ReferenceCurrencyLocal() As String
 
     ReferenceCurrencyLocal = m_ReferenceCurrencyLocal
+
+End Property
+
+' PROPERTY
+' Gets the reference days offset.
+
+Property Get ReferenceDaysOffset() As Long
+
+    ReferenceDaysOffset = m_ReferenceDaysOffset
 
 End Property
 
@@ -288,6 +298,8 @@ Private Sub UserForm_Initialize()
         .AddItem "NL/365"
         .ListIndex = 7
     End With
+    
+    FieldDaysOffset.Text = "2"
 
 End Sub
 
@@ -300,6 +312,7 @@ Private Sub ButtonOk_Click()
     Dim ccyLocal As String: ccyLocal = FieldCurrencyLocal.Text
     Dim ccyForeign As String: ccyForeign = FieldCurrencyForeign.Text
     Dim exchangeRate As String: exchangeRate = FieldExchangeRate.Text
+    Dim offset As String: offset = FieldDaysOffset.Text
     
     Dim shouldExit As Boolean: shouldExit = False
     
@@ -331,6 +344,12 @@ Private Sub ButtonOk_Click()
         shouldExit = True
     End If
     
+    If (offset <> "0") And (offset <> "1") And (offset <> "2") And (offset <> "3") Then
+        FieldDaysOffset.BackColor = RGB(247, 215, 215)
+        FieldDaysOffset.BorderColor = RGB(255, 0, 0)
+        shouldExit = True
+    End If
+    
     If shouldExit Then
         Exit Sub
     End If
@@ -343,11 +362,14 @@ Private Sub ButtonOk_Click()
     FieldCurrencyForeign.BorderColor = &H80000012
     FieldExchangeRate.BackColor = &H8000000F
     FieldExchangeRate.BorderColor = &H80000012
-    
+    FieldDaysOffset.BackColor = &H8000000F
+    FieldDaysOffset.BorderColor = &H80000012
+
     m_ReferenceBusinessDays = FieldBusinessDays.Text
     m_ReferenceCurrencyForeign = FieldCurrencyForeign.Text
     m_ReferenceCurrencyLocal = FieldCurrencyLocal.Text
     m_ReferenceDaysCount = FieldDaysCount.Text
+    m_ReferenceDaysOffset = CLng(offset)
     m_ReferenceExchangeRate = CDbl(exchangeRate)
     m_ReferenceValuationDate = CDate(vd)
 

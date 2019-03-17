@@ -15,6 +15,7 @@ Attribute VB_Exposed = False
 
 ' SETTINGS
 
+Option Base 0
 Option Explicit
 
 ' IMPORTS

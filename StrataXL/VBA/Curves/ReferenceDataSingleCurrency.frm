@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ReferenceDataSingleCurrency 
    Caption         =   "Reference Data"
-   ClientHeight    =   2775
+   ClientHeight    =   3255
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3975
@@ -80,6 +80,7 @@ Const WS_SYSMENU As Long = &H80000
 Dim m_ReferenceBusinessDays As String
 Dim m_ReferenceCurrency As String
 Dim m_ReferenceDaysCount As String
+Dim m_ReferenceDaysOffset As Long
 Dim m_ReferenceValuationDate As Date
 
 ' PROPERTY
@@ -106,6 +107,15 @@ End Property
 Property Get ReferenceDaysCount() As String
 
     ReferenceDaysCount = m_ReferenceDaysCount
+
+End Property
+
+' PROPERTY
+' Gets the reference days offset.
+
+Property Get ReferenceDaysOffset() As Long
+
+    ReferenceDaysOffset = m_ReferenceDaysOffset
 
 End Property
 
@@ -217,6 +227,8 @@ Private Sub UserForm_Initialize()
         .AddItem "NL/365"
         .ListIndex = 7
     End With
+    
+    FieldDaysOffset.Text = "2"
 
 End Sub
 
@@ -226,22 +238,35 @@ End Sub
 Private Sub ButtonOk_Click()
 
     Dim vd As String: vd = FieldValuationDate.Text
+    Dim offset As String: offset = FieldDaysOffset.Text
     
-    If Not IsDate(vd) Then
-
+    Dim shouldExit As Boolean: shouldExit = False
+    
+    If Not IsDate(vd) Or (DateDiff("d", CDate(vd), Now()) < 0) Then
         FieldValuationDate.BackColor = RGB(247, 215, 215)
         FieldValuationDate.BorderColor = RGB(255, 0, 0)
-
+        shouldExit = True
+    End If
+    
+    If (offset <> "0") And (offset <> "1") And (offset <> "2") And (offset <> "3") Then
+        FieldDaysOffset.BackColor = RGB(247, 215, 215)
+        FieldDaysOffset.BorderColor = RGB(255, 0, 0)
+        shouldExit = True
+    End If
+    
+    If shouldExit Then
         Exit Sub
-
     End If
     
     FieldValuationDate.BackColor = &H8000000F
     FieldValuationDate.BorderColor = &H80000012
-    
+    FieldDaysOffset.BackColor = &H8000000F
+    FieldDaysOffset.BorderColor = &H80000012
+
     m_ReferenceBusinessDays = FieldBusinessDays.Text
     m_ReferenceCurrency = FieldCurrency.Text
     m_ReferenceDaysCount = FieldDaysCount.Text
+    m_ReferenceDaysOffset = CLng(offset)
     m_ReferenceValuationDate = CDate(vd)
 
     Me.Hide
