@@ -20,7 +20,6 @@ StrataXL can be used on every machine equipped with Windows 7 or greater; it is 
    * Microsoft Office Object Library
    * MSCorLib
    * OLE Automation
-   * ScanProfiles Type Library
  * The auxiliary projects have been developed under Visual Studio 2017, but they can be downgraded or upgraded without problems.
 
 ## Installation & Upgrade
