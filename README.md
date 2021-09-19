@@ -2,7 +2,7 @@
 
 StrataXL is an Excel integration of [OpenGamma Strata](http://strata.opengamma.io/), an open source library specialized in financial derivative instruments and market risk analysis. The technical implementation is achieved by using two nested virtual machines, through the following steps:
 
- 1. OpenGamma Strata is run through [IKVM](https://www.ikvm.net/), which allows interoperability between Java and .NET.
+ 1. OpenGamma Strata is plugged into [IKVM](https://www.ikvm.net/), which allows interoperability between Java and .NET.
  1. An instance of the .NET Common Language Runtime (CLR) is hosted within the Excel environment.
  1. An hybrid helper class written part in C# and part in VBA is used for handling OpenGamma Strata classes and method invocations through the late binding approach.
 
